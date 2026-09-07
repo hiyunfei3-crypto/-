@@ -1,5 +1,8 @@
 {
   "d1": null,
   "r2": null,
-  "project_id": "appgprj_6a9e813d1d748191af7feb832092a344"
+  "project_id": "appgprj_6a9e813d1d748191af7feb832092a344",
+  "static": {
+    "directory": "dist/client"
+  }
 }

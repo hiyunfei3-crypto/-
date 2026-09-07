@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, AudioLines, ChevronLeft, ChevronRight, Heart, Search, X } from 'lucide-react';
+import { ArrowUpRight, AudioLines, ChevronLeft, ChevronRight, Heart, Search, X, Copy, Check } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { copySongRequest, requestText } from '@/lib/song-request';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
@@ -18,6 +20,19 @@ export default function Home() {
  const [ready, setReady] = useState(false);
  const [storageError, setStorageError] = useState(false);
  const [announcement, setAnnouncement] = useState('');
+ const [copiedId, setCopiedId] = useState<number | null>(null);
+ const [copying, setCopying] = useState(false);
+ const [copyMessage, setCopyMessage] = useState('');
+ const [manualCopy, setManualCopy] = useState<Song | null>(null);
+ useEffect(() => { if (copiedId === null) return; const timer = setTimeout(() => setCopiedId(null), 2500); return () => clearTimeout(timer); }, [copiedId]);
+ async function copySong(song: Song) {
+  if (copying) return;
+  setCopying(true);
+  const succeeded = await copySongRequest(song, navigator.clipboard);
+  setCopying(false);
+  if (succeeded) { setCopiedId(song.id); setCopyMessage('已复制：' + requestText(song) + '，请粘贴到直播间。'); }
+  else { setCopyMessage(''); setManualCopy(song); }
+ }
 
  useEffect(() => {
   const restore = () => { try { setFavorites(cleanFavorites(JSON.parse(localStorage.getItem(storageKey) || '[]'))); setStorageError(false); } catch { setStorageError(true); } };
@@ -59,6 +74,7 @@ export default function Home() {
    <ol className="song-grid" aria-label={view === 'favorites' ? '已收藏歌曲' : '歌曲列表'} start={start + 1}>{currentSongs.map(song => <li key={song.id} className={'song-item' + (favorites.includes(song.id) ? ' song-saved' : '')}>
     <span className="song-number" aria-label={'原编号 ' + song.id}>{String(song.id).padStart(3, '0')}</span>
     <span className="song-name">{song.title}</span>
+    <button className={'copy-song-button' + (copiedId === song.id ? ' copied' : '')} onClick={() => copySong(song)} disabled={copying} aria-label={'复制点歌：' + requestText(song)}>{copiedId === song.id ? <Check size={16} /> : <Copy size={16} />}<span>{copiedId === song.id ? '已复制' : '复制点歌'}</span></button>
     <button className={'favorite-button' + (favorites.includes(song.id) ? ' saved' : '')} aria-label={(favorites.includes(song.id) ? '取消收藏' : '收藏') + '第 ' + song.id + ' 首 ' + song.title} aria-pressed={favorites.includes(song.id)} onClick={() => toggleFavorite(song)} disabled={!ready}><Heart size={19} fill={favorites.includes(song.id) ? 'currentColor' : 'none'} /></button>
    </li>)}</ol>
    <div className="catalog-paging"><span className="page-label">第 {currentPage} / {pageCount} 页</span><Pagination aria-label="歌曲列表分页"><PaginationContent>
@@ -70,13 +86,16 @@ export default function Home() {
  </>;
  return <Tabs value={view} onValueChange={value => { setView(String(value)); resetFilters(); }} className="site-shell">
   <a href="#collection" className="skip-link">跳到歌曲列表</a>
-  <header className="topbar"><a href="/" className="brand" aria-label="循环首页"><span className="brand-symbol"><AudioLines size={25} /></span><strong>循环<span>ON REPEAT</span></strong></a><TabsList variant="line" className="main-nav"><TabsTrigger value="discover">我的歌单</TabsTrigger><TabsTrigger value="favorites">我的收藏<span className="nav-count">{favorites.length}</span></TabsTrigger></TabsList><div className="personal"><span className="status-dot" />私人音乐空间<div className="avatar">我</div></div></header>
-  <main id="main"><div className="page-heading"><div><p className="eyebrow">MY MUSIC COLLECTION / {songs.length} TRACKS</p><h1>每一首，都是偏爱<span>。</span></h1></div><div className="search-box"><Search size={20} /><Input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="搜索歌名或原编号，如 543" aria-label="搜索歌名或原编号" />{query && <button onClick={() => { setQuery(''); setPage(1); }} aria-label="清除搜索"><X size={17} /></button>}</div></div>
-  {view === 'discover' && !query && <section className="catalog-featured" aria-label="我的曲库概览"><div className="catalog-banner"><img src="/night-city.png" alt="" /><div className="catalog-banner-copy"><p className="eyebrow">YOUR SONGS. YOUR STORIES.</p><h2>你的歌单，<br />都在这里。</h2><p>{songs.length} 首歌曲 <span>·</span> {songs.filter(isSC).length} 首 SC 标记</p></div><AudioLines className="banner-icon" aria-hidden="true" /></div><aside className="catalog-favorites"><div className="note-top"><Heart size={21} /><span>MY FAVORITES</span></div><strong>{String(favorites.length).padStart(2, '0')}<span>首已收藏</span></strong><button onClick={() => { setView('favorites'); resetFilters(); }}>打开我的收藏<ArrowUpRight size={21} /></button></aside></section>}
-  <TabsContent value="discover" className="collection-content">{view === 'discover' && catalog}</TabsContent><TabsContent value="favorites" className="collection-content">{view === 'favorites' && catalog}</TabsContent>
+  <header className="topbar"><a href="/" className="brand" aria-label="点歌单首页"><span className="brand-symbol"><AudioLines size={25} /></span><strong>点歌单<span>SONG REQUESTS</span></strong></a><TabsList variant="line" className="main-nav"><TabsTrigger value="discover">全部歌曲</TabsTrigger><TabsTrigger value="favorites">我的收藏<span className="nav-count">{favorites.length}</span></TabsTrigger></TabsList><div className="personal"><span className="status-dot" />直播间点歌</div></header>
+  <main id="main"><div className="page-heading"><div><p className="eyebrow">SONG REQUESTS / {songs.length} TRACKS</p><h1>点歌单</h1></div><div className="search-box"><Search size={20} /><Input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="搜索歌名或原编号，如 543" aria-label="搜索歌名或原编号" />{query && <button onClick={() => { setQuery(''); setPage(1); }} aria-label="清除搜索"><X size={17} /></button>}</div></div>
+  {view === 'discover' && !query && <section className="catalog-featured" aria-label="点歌说明"><div className="catalog-banner"><img src="/night-city.png" alt="" /><div className="catalog-banner-copy"><p className="eyebrow">PICK A SONG.</p><h2>选一首，<br />唱给你听。</h2><p>{songs.length} 首歌曲 <span>·</span> {songs.filter(isSC).length} 首 SC 标记</p></div><AudioLines className="banner-icon" aria-hidden="true" /></div><aside className="catalog-favorites"><div className="note-top"><Heart size={21} /><span>MY FAVORITES</span></div><strong>{String(favorites.length).padStart(2, '0')}<span>首已收藏</span></strong><button onClick={() => { setView('favorites'); resetFilters(); }}>打开我的收藏<ArrowUpRight size={21} /></button></aside></section>}
+  <p className="request-instructions">找到想听的歌，点击「复制点歌」，再粘贴到直播间。</p><TabsContent value="discover" className="collection-content">{view === 'discover' && catalog}</TabsContent><TabsContent value="favorites" className="collection-content">{view === 'favorites' && catalog}</TabsContent>
   {storageError && <p className="storage-warning" role="alert">浏览器暂时无法保存收藏；本次选择仍可使用，关闭页面后可能丢失。</p>}
-  <footer><a href="/" className="footer-brand"><AudioLines size={18} />循环 · ON REPEAT</a><span>{songs.length} 首歌曲 · 收藏保存在当前浏览器 · 暂无音频播放</span><a href="#main">回到顶部 ↑</a></footer>
+  <footer><a href="/" className="footer-brand"><AudioLines size={18} />点歌单</a><span>{songs.length} 首歌曲 · 收藏保存在当前浏览器 · 复制歌名到直播间点歌</span><a href="#main">回到顶部 ↑</a></footer>
   </main><span className="sr-only" role="status">{announcement}</span>
+  {copyMessage && <div className="copy-notice" role="status"><Check size={18} /><span>{copyMessage}</span><button onClick={() => setCopyMessage('')} aria-label="关闭复制提示"><X size={18} /></button></div>}
+  <Dialog open={!!manualCopy} onOpenChange={open => { if (!open) setManualCopy(null); }}><DialogContent className="manual-copy-dialog" showCloseButton={false}><DialogHeader><DialogTitle>手动复制点歌</DialogTitle><DialogDescription>浏览器未允许自动复制。请选择下方文字复制，然后粘贴到直播间。</DialogDescription></DialogHeader><textarea autoFocus readOnly aria-label="点歌文字" value={manualCopy ? requestText(manualCopy) : ''} onFocus={event => event.currentTarget.select()} /><DialogClose render={<Button className="lime-button" />}>完成</DialogClose></DialogContent></Dialog>
  </Tabs>;
 }
+
 
