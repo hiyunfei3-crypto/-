@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { createShakeDetector } from '@/lib/shake-detector';
 import { songs, type Song } from '@/lib/songs';
 import { copySongRequest, requestText } from '@/lib/song-request';
 
@@ -41,37 +42,26 @@ export function BlindBox({ manualCopy }: { manualCopy: (song: Song) => void }) {
   if (!motion) { setSensorMessage('此浏览器不支持手机摇动，请点击按钮抽歌。'); return; }
   try {
    if (motion.requestPermission && await motion.requestPermission() !== 'granted') { setSensorMessage('未获得运动权限，请点击按钮抽歌。'); return; }
-   if (mounted.current) { setEnabled(true); setSensorMessage('已开启，轻摇手机试试；也可点击按钮抽歌。'); }
+   if (mounted.current) { setEnabled(true); setSensorMessage('正在连接运动传感器，请摇动手机…'); }
   } catch { setSensorMessage('无法开启运动传感器，请点击按钮抽歌。'); }
  }
  const drawRef = useRef(draw); drawRef.current = draw;
  useEffect(() => {
   if (!enabled) return;
-  let gravity: number[] | null = null, first = -Infinity, last = -Infinity, cooldown = -Infinity, high = false, received = false;
-  const reset = () => { gravity = null; first = last = -Infinity; high = false; };
-  const timeout = setTimeout(() => { if (!received) setSensorMessage('尚未收到运动数据；若摇动无反应，请使用按钮抽歌。'); }, 5000);
+  let detector = createShakeDetector(), received = false;
+  const reset = () => { detector = createShakeDetector(); };
+  const timeout = setTimeout(() => { if (!received) setSensorMessage('浏览器没有提供运动数据。请检查运动传感器权限，或使用上方按钮抽歌。'); }, 5000);
   const motion = (event: DeviceMotionEvent) => {
    if (document.hidden) return;
-   const now = performance.now();
-   let a = event.acceleration;
-   let values: number[];
-   if (a && a.x != null && a.y != null && a.z != null) values = [a.x, a.y, a.z];
-   else {
-    a = event.accelerationIncludingGravity;
-    if (!a || a.x == null || a.y == null || a.z == null) return;
-    const raw = [a.x, a.y, a.z];
-    if (!gravity) { gravity = raw; return; }
-    gravity = gravity.map((v, i) => .8 * v + .2 * raw[i]);
-    values = raw.map((v, i) => v - gravity![i]);
-   }
-   received = true;
-   if (lock.current || now - cooldown < 2000) { first = -Infinity; return; }
-   const magnitude = Math.hypot(...values);
-   if (magnitude < 6) high = false;
-   if (magnitude < 12 || high || now - last < 120) return;
-   high = true; last = now;
-   if (now - first <= 800) { cooldown = now; first = -Infinity; void drawRef.current(true); }
-   else first = now;
+   // Prefer raw acceleration: some phones return constant zeros for linear acceleration.
+   const a = event.accelerationIncludingGravity ?? event.acceleration;
+   const fallback = event.acceleration;
+   const valid = (v: DeviceMotionEventAcceleration | null) => v && v.x != null && v.y != null && v.z != null;
+   const data = valid(a) ? a : valid(fallback) ? fallback : null;
+   if (!data) return;
+   if (!received) { received = true; setSensorMessage('已收到运动数据，来回摇动手机即可抽歌。'); }
+   if (lock.current) return;
+   if (detector([data.x!, data.y!, data.z!], performance.now())) void drawRef.current(true);
   };
   window.addEventListener('devicemotion', motion);
   document.addEventListener('visibilitychange', reset);
