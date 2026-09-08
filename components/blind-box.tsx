@@ -4,7 +4,7 @@ import { createShakeDetector } from '@/lib/shake-detector';
 import { songs, type Song } from '@/lib/songs';
 import { copySongRequest, requestText } from '@/lib/song-request';
 
-export function BlindBox({ manualCopy }: { manualCopy: (song: Song) => void }) {
+export function BlindBox({ manualCopy, pool = songs }: { manualCopy: (song: Song) => void; pool?: Song[] }) {
  const [song, setSong] = useState<Song | null>(null);
  const [busy, setBusy] = useState(false);
  const [enabled, setEnabled] = useState(false);
@@ -17,7 +17,8 @@ export function BlindBox({ manualCopy }: { manualCopy: (song: Song) => void }) {
  async function draw(fromMotion = false) {
   if (lock.current) return;
   lock.current = true; setBusy(true);
-  const selected = songs[Math.floor(Math.random() * songs.length)];
+  if (!pool.length) { setSensorMessage('收藏列表为空，请先收藏歌曲。'); lock.current = false; return; }
+  const selected = pool[Math.floor(Math.random() * pool.length)];
   setSong(selected); setMessage('');
   // Start clipboard access in the original user gesture, before animation delays.
   const copied = copySongRequest(selected, navigator.clipboard);
@@ -68,7 +69,7 @@ export function BlindBox({ manualCopy }: { manualCopy: (song: Song) => void }) {
   return () => { clearTimeout(timeout); window.removeEventListener('devicemotion', motion); document.removeEventListener('visibilitychange', reset); };
  }, [enabled]);
  return <section className="blind-box" aria-label="盲盒点歌">
-  <div><p className="eyebrow">SURPRISE SONG</p><h2>盲盒点歌</h2><p>从全部 {songs.length} 首歌中，摇出今天的惊喜。</p></div>
+  <div><p className="eyebrow">SURPRISE SONG</p><h2>盲盒点歌</h2><p>从{pool === songs ? '全部 ' + songs.length : '当前收藏的 ' + pool.length} 首歌中，摇出今天的惊喜。</p></div>
   <div className="blind-actions"><button className="lime-button" disabled={busy} onClick={() => void draw()}>{busy ? '正在摇出好歌…' : '来首好歌摇一摇'}</button><button className="motion-switch" role="switch" aria-checked={enabled} onClick={() => void toggle()}>{enabled ? '关闭手机摇一摇' : '开启手机摇一摇'}</button></div>
   {sensorMessage && <p className="blind-hint" role="status">{sensorMessage}</p>}
   {song && <div className={'blind-result' + (busy ? ' shaking' : '')}><span>抽中第 {song.id} 首</span><strong>{song.title}</strong><div><button disabled={busy} onClick={() => void draw()}>再摇一次</button><button disabled={busy} onClick={() => void copy()}>复制点歌</button></div></div>}
