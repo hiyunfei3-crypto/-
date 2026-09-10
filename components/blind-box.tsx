@@ -16,8 +16,8 @@ export function BlindBox({ manualCopy, pool = songs }: { manualCopy: (song: Song
  useEffect(() => { mounted.current = true; return () => { mounted.current = false; if (timer.current) clearTimeout(timer.current); }; }, []);
  async function draw(fromMotion = false) {
   if (lock.current) return;
+  if (!pool.length) { setSensorMessage('收藏列表为空，请先收藏歌曲。'); return; }
   lock.current = true; setBusy(true);
-  if (!pool.length) { setSensorMessage('收藏列表为空，请先收藏歌曲。'); lock.current = false; return; }
   const selected = pool[Math.floor(Math.random() * pool.length)];
   setSong(selected); setMessage('');
   // Start clipboard access in the original user gesture, before animation delays.
