@@ -1,5 +1,7 @@
 'use client';
 import { BlindBox } from '@/components/blind-box';
+import { CommunityPanel } from '@/components/community-panel';
+import { community, type Community } from '@/lib/community';
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, AudioLines, ChevronLeft, ChevronRight, Heart, Search, X, Copy, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
@@ -18,6 +20,28 @@ export default function Home() {
  const [query, setQuery] = useState('');
  const [page, setPage] = useState(1);
  const [favorites, setFavorites] = useState<number[]>([]);
+ const [profileId,setProfileId]=useState('');
+ const [shared,setShared]=useState<Community|null>(null);
+ const [sharedError,setSharedError]=useState('');
+ const [sharedBusy,setSharedBusy]=useState(false);
+ async function act(path:string,body:Record<string,unknown>){
+  if(sharedBusy)return false;
+  setSharedBusy(true);setSharedError('');
+  try{const data=await community(path,{...body,id:profileId});setShared(data);if(profileId)setFavorites(data.favorites);return true;}
+  catch(e){setSharedError((e as Error).message);return false;}finally{setSharedBusy(false);}
+ }
+ async function enter(id:string,merge:boolean){
+  if(sharedBusy)return;setSharedBusy(true);setSharedError('');
+  try{const data=await community('login',{id,merge:merge?cleanFavorites(JSON.parse(localStorage.getItem(storageKey)||'[]')):[]});setShared(data);setProfileId(data.id);setFavorites(data.favorites);}
+  catch(e){setSharedError((e as Error).message);}finally{setSharedBusy(false);}
+ }
+ function leave(){setProfileId('');setShared(null);try{setFavorites(cleanFavorites(JSON.parse(localStorage.getItem(storageKey)||'[]')));}catch{setFavorites([]);}}
+ useEffect(()=>{const failed=()=>setSharedError('点歌已复制，但次数暂未同步到榜单');window.addEventListener('song-count-failed',failed);return()=>window.removeEventListener('song-count-failed',failed);},[]);
+ useEffect(()=>{
+  let active=true;
+  const refresh=()=>{if(sharedBusy)return;void community('state?id='+encodeURIComponent(profileId)).then(data=>{if(active){setShared(data);if(profileId)setFavorites(data.favorites);setSharedError('');}}).catch(e=>{if(active)setSharedError(e.message);});};
+  refresh();const interval=setInterval(refresh,15000);return()=>{active=false;clearInterval(interval);};
+ },[profileId,sharedBusy]);
  const [ready, setReady] = useState(false);
  const [storageError, setStorageError] = useState(false);
  const [announcement, setAnnouncement] = useState('');
@@ -39,14 +63,15 @@ export default function Home() {
  }
 
  useEffect(() => {
-  const restore = () => { try { setFavorites(cleanFavorites(JSON.parse(localStorage.getItem(storageKey) || '[]'))); setStorageError(false); } catch { setStorageError(true); } };
+  const restore = () => { if(profileId)return; try { setFavorites(cleanFavorites(JSON.parse(localStorage.getItem(storageKey) || '[]'))); setStorageError(false); } catch { setStorageError(true); } };
   restore(); setReady(true);
   const onStorage = (event: StorageEvent) => { if (event.key === storageKey || event.key === null) restore(); };
   window.addEventListener('storage', onStorage);
   return () => window.removeEventListener('storage', onStorage);
- }, []);
- function toggleFavorite(song: Song) {
+ }, [profileId]);
+ async function toggleFavorite(song: Song) {
   if (!ready) return;
+  if(profileId){const exists=favorites.includes(song.id);if(await act('like',{song:song.id,active:!exists}))notify(song.title+(exists?'已取消收藏':'已加入收藏'));return;}
   let current = favorites;
   try { current = cleanFavorites(JSON.parse(localStorage.getItem(storageKey) || '[]')); } catch { /* Keep the usable in-memory selection. */ }
   const exists = current.includes(song.id);
@@ -89,14 +114,15 @@ export default function Home() {
    </PaginationContent></Pagination></div>
   </> : <Empty className="empty-state"><EmptyHeader>{view === 'favorites' ? <Heart size={34} /> : <Search size={34} />}<EmptyTitle className="empty-title">{query || category !== '全部' ? '没有找到这首歌' : '喜欢的歌，留在这里'}</EmptyTitle><EmptyDescription>{query || category !== '全部' ? '试试歌名中的几个字，或者输入原编号。' : '点击歌曲旁的爱心，就能加入你的收藏。'}</EmptyDescription></EmptyHeader><Button className="lime-button" onClick={() => { if (!query && category === '全部') setView('discover'); resetFilters(); }}>{query || category !== '全部' ? '清除筛选' : '浏览全部曲目'}<ArrowUpRight size={16} /></Button></Empty>}
  </>;
- return <Tabs value={view} onValueChange={value => { setView(String(value)); resetFilters(); }} className="site-shell">
+ return <Tabs value={view} onValueChange={value => { setView(String(value)); resetFilters(); }} className={'site-shell'+(view==='ranking'||view==='wishes'?' community-view':'')}>
   <a href="#collection" className="skip-link">跳到歌曲列表</a>
-  <header className="topbar"><a href="./" className="brand" aria-label="点歌单首页"><span className="brand-symbol"><AudioLines size={25} /></span><strong>点歌单<span>SONG REQUESTS</span></strong></a><TabsList variant="line" className="main-nav"><TabsTrigger value="discover">全部歌曲</TabsTrigger><TabsTrigger value="favorites">我的收藏<span className="nav-count">{favorites.length}</span></TabsTrigger></TabsList><div className="personal"><span className="status-dot" />直播间点歌</div></header>
+  <header className="topbar"><a href="./" className="brand" aria-label="点歌单首页"><span className="brand-symbol"><AudioLines size={25} /></span><strong>点歌单<span>SONG REQUESTS</span></strong></a><TabsList variant="line" className="main-nav"><TabsTrigger value="discover">全部歌曲</TabsTrigger><TabsTrigger value="favorites">我的收藏<span className="nav-count">{favorites.length}</span></TabsTrigger><TabsTrigger value="ranking">点歌榜</TabsTrigger><TabsTrigger value="wishes">许愿学歌</TabsTrigger></TabsList></header>
+  <CommunityPanel data={shared} id={profileId} enter={enter} leave={leave} act={act} view={view} error={sharedError} busy={sharedBusy}/>
   <main id="main"><div className="page-heading"><div><p className="eyebrow">SONG REQUESTS / {songs.length} TRACKS</p><h1>点歌单</h1></div><div className="search-box"><Search size={20} /><Input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="搜索歌名或原编号，如 543" aria-label="搜索歌名或原编号" />{query && <button onClick={() => { setQuery(''); setPage(1); }} aria-label="清除搜索"><X size={17} /></button>}</div></div>
   {view === 'discover' && !query && <section className="catalog-featured" aria-label="点歌说明"><div className="catalog-banner"><img src="./night-city.png" alt="" /><div className="catalog-banner-copy"><p className="eyebrow">PICK A SONG.</p><h2>选一首，<br />唱给你听。</h2><p>{songs.length} 首歌曲 <span>·</span> {songs.filter(isSC).length} 首 SC 标记</p></div><AudioLines className="banner-icon" aria-hidden="true" /></div><aside className="catalog-favorites"><div className="note-top"><Heart size={21} /><span>MY FAVORITES</span></div><strong>{String(favorites.length).padStart(2, '0')}<span>首已收藏</span></strong><button onClick={() => { setView('favorites'); resetFilters(); }}>打开我的收藏<ArrowUpRight size={21} /></button></aside></section>}
   <BlindBox manualCopy={setManualCopy} favorites={favorites} toggleFavorite={toggleFavorite} ready={ready} notify={notify} pool={view === 'favorites' ? songs.filter(song => favorites.includes(song.id)) : songs} /><p className="request-instructions">找到想听的歌，点击「复制点歌」，再粘贴到直播间。</p><TabsContent value="discover" className="collection-content">{view === 'discover' && catalog}</TabsContent><TabsContent value="favorites" className="collection-content">{view === 'favorites' && catalog}</TabsContent>
   {storageError && <p className="storage-warning" role="alert">浏览器暂时无法保存收藏；本次选择仍可使用，关闭页面后可能丢失。</p>}
-  <footer><a href="./" className="footer-brand"><AudioLines size={18} />点歌单</a><span>{songs.length} 首歌曲 · 收藏保存在当前浏览器 · 复制歌名到直播间点歌</span><a href="#main">回到顶部 ↑</a></footer>
+  <footer><a href="./" className="footer-brand"><AudioLines size={18} />点歌单</a><span>{songs.length} 首歌曲 · {profileId?'收藏保存在ID档案':'游客收藏保存在当前浏览器'} · 复制歌名到直播间点歌</span><a href="#main">回到顶部 ↑</a></footer>
   </main><span className="sr-only" role="status">{announcement}</span>
   {(notice || copyMessage) && <div className="copy-notice" role="status"><Check size={18} /><span>{notice?.text || copyMessage}</span><button onClick={() => { setNotice(null); setCopyMessage(''); }} aria-label="关闭提示"><X size={18} /></button></div>}
   <Dialog open={!!manualCopy} onOpenChange={open => { if (!open) setManualCopy(null); }}><DialogContent className="manual-copy-dialog" showCloseButton={false}><DialogHeader><DialogTitle>手动复制点歌</DialogTitle><DialogDescription>浏览器未允许自动复制。请选择下方文字复制，然后粘贴到直播间。</DialogDescription></DialogHeader><textarea autoFocus readOnly aria-label="点歌文字" value={manualCopy ? requestText(manualCopy) : ''} onFocus={event => event.currentTarget.select()} /><DialogClose render={<Button className="lime-button" />}>完成</DialogClose></DialogContent></Dialog>

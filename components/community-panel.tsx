@@ -1,0 +1,12 @@
+import {useState} from 'react';
+import {songs} from '@/lib/songs';
+import type {Community} from '@/lib/community';
+export function CommunityPanel({data,id,enter,leave,act,view,error,busy}:{data:Community|null;id:string;enter:(id:string,merge:boolean)=>void;leave:()=>void;act:(path:string,body:Record<string,unknown>)=>Promise<boolean>;view:string;error:string;busy:boolean}){
+ const [input,setInput]=useState(''),[merge,setMerge]=useState(false),[rank,setRank]=useState('copies'),[title,setTitle]=useState(''),[artist,setArtist]=useState('');
+ return <section className="community-panel">
+ {id?<p>当前ID：{id} <button onClick={leave} disabled={busy}>退出 / 更换ID</button></p>:<form onSubmit={e=>{e.preventDefault();enter(input,merge);}}><label>输入ID，保存和恢复你的档案 <input required minLength={3} maxLength={40} value={input} onChange={e=>setInput(e.target.value)} placeholder="3–40个字符，例如 九橘001" /></label><label><input type="checkbox" checked={merge} onChange={e=>setMerge(e.target.checked)} />合并此浏览器原有收藏</label><button disabled={busy}>进入档案</button><p>无需密码。知道同一ID的人都能查看和修改该档案。</p></form>}
+ {error&&<p role="alert">{error}</p>}
+ {view==='ranking'&&<><h2>点歌榜</h2><div><button aria-pressed={rank==='copies'} onClick={()=>setRank('copies')}>点歌榜</button><button aria-pressed={rank==='likes'} onClick={()=>setRank('likes')}>喜爱榜</button></div>{!data?<p>等待连接共享榜单</p>:<><ol>{data[rank==='copies'?'copies':'likes'].map(row=><li key={row.song}>{songs.find(s=>s.id===row.song)?.title} <span>{row.count} {rank==='copies'?'次点歌':'人喜欢'}</span></li>)}</ol>{!data[rank==='copies'?'copies':'likes'].length&&<p>暂无记录，来为喜欢的歌点亮榜单。</p>}</>}</>}
+ {view==='wishes'&&<><h2>许愿学歌</h2><form onSubmit={async e=>{e.preventDefault();if(await act('wish',{title,artist})){setTitle('');setArtist('');}}}><input aria-label="许愿歌名" required maxLength={100} placeholder="想听主播学哪首歌？" value={title} onChange={e=>setTitle(e.target.value)}/><input aria-label="歌手（选填）" maxLength={80} placeholder="歌手（选填）" value={artist} onChange={e=>setArtist(e.target.value)}/><button disabled={!id||busy}>提交许愿</button></form><p>相同歌名和歌手的许愿合并，提交即支持一次。</p>{!data?<p>等待连接许愿榜</p>:<><ol>{data.wishes.map(w=><li key={w.id}><span>{w.title}{w.artist?' · '+w.artist:''}</span><button disabled={!id||busy} aria-pressed={data.supported.includes(w.id)} onClick={()=>void act('vote',{wish:w.id,active:!data.supported.includes(w.id)})}>{data.supported.includes(w.id)?'已支持 · 取消':'+1 支持'}（{w.count}）</button></li>)}</ol>{!data.wishes.length&&<p>还没有许愿，写下第一首吧。</p>}</>}</>}
+ </section>;
+}

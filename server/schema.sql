@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS profiles(id TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS likes(profile TEXT, song INTEGER, PRIMARY KEY(profile,song));
+CREATE TABLE IF NOT EXISTS copies(event TEXT PRIMARY KEY, song INTEGER);
+CREATE INDEX IF NOT EXISTS copies_song ON copies(song);
+CREATE INDEX IF NOT EXISTS likes_song ON likes(song);
+CREATE TABLE IF NOT EXISTS wishes(id INTEGER PRIMARY KEY, title TEXT, artist TEXT, key TEXT UNIQUE, creator TEXT);
+CREATE TABLE IF NOT EXISTS votes(profile TEXT, wish INTEGER, PRIMARY KEY(profile,wish));
+CREATE INDEX IF NOT EXISTS votes_wish ON votes(wish);

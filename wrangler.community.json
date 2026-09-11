@@ -1,0 +1,7 @@
+{
+ "name":"jiuju-community",
+ "main":"server/worker.ts",
+ "compatibility_date":"2026-09-01",
+ "account_id":"4a922e70d33ca3236a76717bb7c39ed9",
+ "d1_databases":[{"binding":"DB","database_name":"jiuju-community","database_id":"05a4d0b0-ef08-4b44-9d0e-6bf5557235e3"}]
+}
