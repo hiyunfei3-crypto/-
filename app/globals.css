@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Keep blind-box actions usable on narrow screens. */
+.blind-result > div{flex-wrap:wrap}.blind-result button{display:inline-flex;align-items:center;justify-content:center;gap:6px}.blind-result button[aria-pressed=true]{color:#d1fc72;border-color:#d1fc72}
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @custom-variant dark (&:is(.dark *));

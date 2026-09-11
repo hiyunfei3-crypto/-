@@ -1,10 +1,14 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { Heart } from 'lucide-react';
 import { createShakeDetector } from '@/lib/shake-detector';
 import { songs, type Song } from '@/lib/songs';
 import { copySongRequest, requestText } from '@/lib/song-request';
 
-export function BlindBox({ manualCopy, pool = songs }: { manualCopy: (song: Song) => void; pool?: Song[] }) {
+export function BlindBox({ manualCopy, pool = songs, favorites, toggleFavorite, ready, notify }: { manualCopy: (song: Song) => void; pool?: Song[]; favorites: number[]; toggleFavorite: (song: Song) => void; ready: boolean; notify: (text: string) => void }) {
+ const [copied, setCopied] = useState<{ id: number } | null>(null);
+ useEffect(() => { if (!copied) return; const timeout = setTimeout(() => setCopied(null), 3000); return () => clearTimeout(timeout); }, [copied]);
+ function copiedSuccessfully(value: Song) { setCopied({ id: value.id }); notify('已复制：' + requestText(value) + '，请粘贴到直播间'); }
  const [song, setSong] = useState<Song | null>(null);
  const [busy, setBusy] = useState(false);
  const [enabled, setEnabled] = useState(false);
@@ -19,12 +23,13 @@ export function BlindBox({ manualCopy, pool = songs }: { manualCopy: (song: Song
   if (!pool.length) { setSensorMessage('收藏列表为空，请先收藏歌曲。'); return; }
   lock.current = true; setBusy(true);
   const selected = pool[Math.floor(Math.random() * pool.length)];
-  setSong(selected); setMessage('');
+  setSong(selected); setMessage(''); setCopied(null);
   // Start clipboard access in the original user gesture, before animation delays.
   const copied = copySongRequest(selected, navigator.clipboard);
   const animation = new Promise<void>(resolve => { timer.current = setTimeout(resolve, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650); });
   const ok = await copied;
   if (!mounted.current) return;
+  if (ok) copiedSuccessfully(selected);
   setMessage(ok ? '已复制，请粘贴到直播间：' + requestText(selected) : '已抽中！点击复制点歌。');
   if (!ok && !fromMotion) manualCopy(selected);
   await animation;
@@ -33,7 +38,9 @@ export function BlindBox({ manualCopy, pool = songs }: { manualCopy: (song: Song
  async function copy() {
   if (!song || lock.current) return;
   lock.current = true;
+  setCopied(null);
   const ok = await copySongRequest(song, navigator.clipboard);
+  if (mounted.current && ok) copiedSuccessfully(song);
   if (mounted.current) { setMessage(ok ? '已复制，请粘贴到直播间：' + requestText(song) : '请选择弹窗中的文字手动复制'); if (!ok) manualCopy(song); }
   lock.current = false;
  }
@@ -72,7 +79,7 @@ export function BlindBox({ manualCopy, pool = songs }: { manualCopy: (song: Song
   <div><p className="eyebrow">SURPRISE SONG</p><h2>盲盒点歌</h2><p>从{pool === songs ? '全部 ' + songs.length : '当前收藏的 ' + pool.length} 首歌中，摇出今天的惊喜。</p></div>
   <div className="blind-actions"><button className="lime-button" disabled={busy} onClick={() => void draw()}>{busy ? '正在摇出好歌…' : '来首好歌摇一摇'}</button><button className="motion-switch" role="switch" aria-checked={enabled} onClick={() => void toggle()}>{enabled ? '关闭手机摇一摇' : '开启手机摇一摇'}</button></div>
   {sensorMessage && <p className="blind-hint" role="status">{sensorMessage}</p>}
-  {song && <div className={'blind-result' + (busy ? ' shaking' : '')}><span>抽中第 {song.id} 首</span><strong>{song.title}</strong><div><button disabled={busy} onClick={() => void draw()}>再摇一次</button><button disabled={busy} onClick={() => void copy()}>复制点歌</button></div></div>}
+  {song && <div className={'blind-result' + (busy ? ' shaking' : '')}><span>抽中第 {song.id} 首</span><strong>{song.title}</strong><div><button disabled={busy} onClick={() => void draw()}>再摇一次</button><button disabled={busy} onClick={() => void copy()}>{copied?.id === song.id ? '已复制' : '复制点歌'}</button><button disabled={!ready || busy} aria-pressed={favorites.includes(song.id)} onClick={() => toggleFavorite(song)}><Heart size={17} fill={favorites.includes(song.id) ? 'currentColor' : 'none'} />{favorites.includes(song.id) ? '已喜欢' : '喜欢'}</button></div></div>}
   <p className="blind-hint" role="status" aria-live="polite">{message}</p>
  </section>;
 }
