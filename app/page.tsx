@@ -40,8 +40,8 @@ export default function Home() {
  useEffect(()=>{
   let active=true;
   const refresh=()=>{if(sharedBusy)return;void community('state?id='+encodeURIComponent(profileId)).then(data=>{if(active){setShared(data);if(profileId)setFavorites(data.favorites);setSharedError('');}}).catch(e=>{if(active)setSharedError(e.message);});};
-  refresh();const interval=setInterval(refresh,15000);return()=>{active=false;clearInterval(interval);};
- },[profileId,sharedBusy]);
+  refresh();return()=>{active=false;};
+ },[profileId,view]);
  const [ready, setReady] = useState(false);
  const [storageError, setStorageError] = useState(false);
  const [announcement, setAnnouncement] = useState('');
