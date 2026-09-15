@@ -1,6 +1,6 @@
-export type Song = { id: number; title: string };
+export type Song = { id: number; title: string; note?: string; isSC?: boolean; active?: boolean };
 
-export const songs: Song[] = [
+export let songs: Song[] = [
   {
     "id": 1,
     "title": "默"
@@ -2204,6 +2204,7 @@ export const songs: Song[] = [
 ];
 
 export const PAGE_SIZE = 36;
+export function replaceSongs(next:Song[]){songs=next.filter(song=>song.active!==false).sort((a,b)=>a.id-b.id)}
 export const categories = ['全部', '1–2字', '3字', '4字', '5字及以上', 'SC'] as const;
 export type Category = typeof categories[number];
 export const isSC = (song: Song) => /\(sc\)$/i.test(song.title);

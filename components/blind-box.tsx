@@ -1,14 +1,11 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Heart } from 'lucide-react';
+import { Check, Copy, Heart, Mic2, Play } from 'lucide-react';
 import { createShakeDetector } from '@/lib/shake-detector';
 import { songs, type Song } from '@/lib/songs';
-import { copySongRequest, requestText } from '@/lib/song-request';
+import type { RequestKind } from '@/lib/request-demo';
 
-export function BlindBox({ manualCopy, pool = songs, favorites, toggleFavorite, ready, notify }: { manualCopy: (song: Song) => void; pool?: Song[]; favorites: number[]; toggleFavorite: (song: Song) => void; ready: boolean; notify: (text: string) => void }) {
- const [copied, setCopied] = useState<{ id: number } | null>(null);
- useEffect(() => { if (!copied) return; const timeout = setTimeout(() => setCopied(null), 3000); return () => clearTimeout(timeout); }, [copied]);
- function copiedSuccessfully(value: Song) { setCopied({ id: value.id }); notify('已复制：' + requestText(value) + '，请粘贴到直播间'); }
+export function BlindBox({ pool = songs, favorites, toggleFavorite, ready, onRequest, onCopy, copiedId }: { pool?: Song[]; favorites: number[]; toggleFavorite: (song: Song) => void; ready: boolean; onRequest: (song: Song, kind: RequestKind) => void; onCopy:(song:Song)=>void; copiedId:number|null }) {
  const [song, setSong] = useState<Song | null>(null);
  const [busy, setBusy] = useState(false);
  const [enabled, setEnabled] = useState(false);
@@ -23,26 +20,12 @@ export function BlindBox({ manualCopy, pool = songs, favorites, toggleFavorite, 
   if (!pool.length) { setSensorMessage('收藏列表为空，请先收藏歌曲。'); return; }
   lock.current = true; setBusy(true);
   const selected = pool[Math.floor(Math.random() * pool.length)];
-  setSong(selected); setMessage(''); setCopied(null);
-  // Start clipboard access in the original user gesture, before animation delays.
-  const copied = copySongRequest(selected, navigator.clipboard);
+  setSong(selected); setMessage('');
   const animation = new Promise<void>(resolve => { timer.current = setTimeout(resolve, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 650); });
-  const ok = await copied;
   if (!mounted.current) return;
-  if (ok) copiedSuccessfully(selected);
-  setMessage(ok ? '已复制，请粘贴到直播间：' + requestText(selected) : '已抽中！点击复制点歌。');
-  if (!ok && !fromMotion) manualCopy(selected);
+  setMessage(fromMotion ? '摇到一首惊喜，选择点唱或点放加入待播单。' : '已抽中！选择点唱或点放加入待播单。');
   await animation;
   if (mounted.current) { setBusy(false); lock.current = false; }
- }
- async function copy() {
-  if (!song || lock.current) return;
-  lock.current = true;
-  setCopied(null);
-  const ok = await copySongRequest(song, navigator.clipboard);
-  if (mounted.current && ok) copiedSuccessfully(song);
-  if (mounted.current) { setMessage(ok ? '已复制，请粘贴到直播间：' + requestText(song) : '请选择弹窗中的文字手动复制'); if (!ok) manualCopy(song); }
-  lock.current = false;
  }
  async function toggle() {
   if (enabled) { setEnabled(false); setSensorMessage('手机摇一摇已关闭'); return; }
@@ -79,7 +62,7 @@ export function BlindBox({ manualCopy, pool = songs, favorites, toggleFavorite, 
   <div><p className="eyebrow">SURPRISE SONG</p><h2>盲盒点歌</h2><p>从{pool === songs ? '全部 ' + songs.length : '当前收藏的 ' + pool.length} 首歌中，摇出今天的惊喜。</p></div>
   <div className="blind-actions"><button className="lime-button" disabled={busy} onClick={() => void draw()}>{busy ? '正在摇出好歌…' : '来首好歌摇一摇'}</button><button className="motion-switch" role="switch" aria-checked={enabled} onClick={() => void toggle()}>{enabled ? '关闭手机摇一摇' : '开启手机摇一摇'}</button></div>
   {sensorMessage && <p className="blind-hint" role="status">{sensorMessage}</p>}
-  <div className="blind-result-slot">{song ? <div className={"blind-result" + (busy ? " blind-card-drawing" : "")}><span>抽中第 {song.id} 首</span><strong>{song.title}</strong><div><button disabled={busy} onClick={() => void draw()}>再摇一次</button><button disabled={busy} onClick={() => void copy()}>{copied?.id === song.id ? '已复制' : '复制点歌'}</button><button disabled={!ready || busy} aria-pressed={favorites.includes(song.id)} onClick={() => toggleFavorite(song)}><Heart size={17} fill={favorites.includes(song.id) ? 'currentColor' : 'none'} />{favorites.includes(song.id) ? '已喜欢' : '喜欢'}</button></div></div> : <p className="blind-placeholder">准备好了吗？摇一摇，看看会遇见哪首歌。</p>}</div>
+  <div className="blind-result-slot">{song ? <div className={"blind-result" + (busy ? " blind-card-drawing" : "")}><span>抽中第 {song.id} 首</span><strong>{song.title}</strong><div className="inline-song-actions"><button className="song-action sing" disabled={busy} onClick={() => onRequest(song,'sing')}><Mic2/>点唱</button><button className="song-action play" disabled={busy} onClick={() => onRequest(song,'play')}><Play/>点放</button><button className="song-action copy" disabled={busy} onClick={()=>onCopy(song)}>{copiedId===song.id?<Check/>:<Copy/>}{copiedId===song.id?'已复制':'复制'}</button><button className="song-action favorite" disabled={!ready || busy} aria-pressed={favorites.includes(song.id)} onClick={() => toggleFavorite(song)}><Heart fill={favorites.includes(song.id) ? 'currentColor' : 'none'} />{favorites.includes(song.id) ? '已喜欢' : '喜欢'}</button></div></div> : <p className="blind-placeholder">准备好了吗？摇一摇，看看会遇见哪首歌。</p>}</div>
   <p className="blind-hint" role="status" aria-live="polite">{message}</p>
  </section>;
 }
