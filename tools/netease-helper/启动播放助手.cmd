@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-title Netease Play Helper
+title Songlist Play Helper
 where node >nul 2>nul
 if errorlevel 1 goto no_node
 node server.mjs
