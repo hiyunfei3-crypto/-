@@ -8,5 +8,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': fileURLToPath(new URL('.', import.meta.url)) } },
   css: { postcss: { plugins: [tailwindcss()] } },
-  build: { outDir: 'dist-pages' },
+  build: { outDir: 'dist-pages', rollupOptions: { input: {
+    main: fileURLToPath(new URL('./index.html', import.meta.url)),
+    overlay: fileURLToPath(new URL('./overlay/index.html', import.meta.url)),
+  } } },
 });
