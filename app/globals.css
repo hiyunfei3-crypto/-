@@ -47,6 +47,7 @@ footer{margin-top:64px;padding:26px 0 30px;border-top:1px solid #292f29;display:
 .song-item{display:flex;align-items:center;gap:13px;min-height:70px;padding:12px 4px;border-bottom:1px solid #2b3428;transition:background .15s}
 .song-item:hover{background:#1b2419}.song-number{color:#92a187;font-size:12px;min-width:29px;font-variant-numeric:tabular-nums;letter-spacing:.4px}
 .song-name{flex:1;min-width:0;font-size:16px;line-height:1.55;overflow-wrap:anywhere}
+.song-artist{display:block;font-size:.76em;line-height:1.4;color:#9aa897;font-style:normal;font-weight:400}
 .song-item>.favorite-button{margin:0;min-height:40px;min-width:40px;flex-shrink:0}
 .song-saved .song-name{color:#e2efce}
 .catalog-paging{margin-top:27px;display:flex;align-items:center;justify-content:space-between;gap:15px}

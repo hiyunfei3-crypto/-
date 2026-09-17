@@ -2766,7 +2766,7 @@ export function matchesCategory(song: Song, category: string) {
 export function findSongs(view: string, category: string, query: string, favorites: number[]) {
  const q = query.trim().normalize('NFKC').toLocaleLowerCase();
  const numericQuery = /^#?\d+$/.test(q) ? Number(q.replace('#', '')) : null;
- return songs.filter(song => (view !== 'favorites' || favorites.includes(song.id)) && matchesCategory(song, category) && (!q || song.title.normalize('NFKC').toLocaleLowerCase().includes(q) || song.id === numericQuery));
+ return songs.filter(song => (view !== 'favorites' || favorites.includes(song.id)) && matchesCategory(song, category) && (!q || song.title.normalize('NFKC').toLocaleLowerCase().includes(q) || (song.artist||'').normalize('NFKC').toLocaleLowerCase().includes(q) || song.id === numericQuery));
 }
 export function cleanFavorites(value: unknown): number[] {
  return Array.isArray(value) ? [...new Set(value.filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && songs.some(song => song.id === id)))] : [];

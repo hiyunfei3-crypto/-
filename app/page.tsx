@@ -127,7 +127,7 @@ export default function Home() {
   {visible.length ? <>
    <ol className="song-grid" aria-label={view === 'favorites' ? '已收藏歌曲' : '歌曲列表'} start={start + 1}>{currentSongs.map(song => <li key={song.id} className={'song-item' + (favorites.includes(song.id) ? ' song-saved' : '')}>
     <span className="song-number" aria-label={'原编号 ' + song.id}>{String(song.id).padStart(3, '0')}</span>
-    <span className="song-name">{song.title}</span>
+    <span className="song-name">{song.title}{song.artist && <em className="song-artist">{song.artist}</em>}</span>
     <div className="song-request-actions"><button title="点唱" aria-label={`点唱 ${song.title}`} className="song-action sing" onClick={()=>directRequest(song,'sing')}><Mic2/></button><button title="点放" aria-label={`点放 ${song.title}`} className="song-action play" onClick={()=>directRequest(song,'play')}><Play/></button><button title={copiedId===song.id?'已复制':'复制'} aria-label={`复制 ${song.title}`} className="song-action copy" onClick={()=>void copySong(song)}>{copiedId===song.id?<Check/>:<Copy/>}</button>{song.url&&/^https?:\/\//i.test(song.url)?<a title="打开视频播放" aria-label={`打开 ${song.title} 的视频播放页面`} className="song-action video" href={song.url} target="_blank" rel="noopener noreferrer"><MonitorPlay/></a>:<button title="暂无视频" aria-label={`${song.title} 暂无视频`} className="song-action video" disabled><MonitorPlay/></button>}</div>
     <button className={'favorite-button' + (favorites.includes(song.id) ? ' saved' : '')} aria-label={(favorites.includes(song.id) ? '取消收藏' : '收藏') + '第 ' + song.id + ' 首 ' + song.title} aria-pressed={favorites.includes(song.id)} onClick={() => toggleFavorite(song)} disabled={!ready}><Heart size={19} fill={favorites.includes(song.id) ? 'currentColor' : 'none'} /></button>
    </li>)}</ol>
@@ -143,7 +143,7 @@ export default function Home() {
   <header className="topbar"><a href="./" className="brand" aria-label="点歌单首页"><span className="brand-symbol"><AudioLines size={25} /></span><strong>点歌单<span>SONG REQUESTS</span></strong></a><div id="profile-slot" /><TabsList variant="line" className="main-nav"><TabsTrigger value="discover">全部歌曲</TabsTrigger><TabsTrigger value="queue">待播单</TabsTrigger><TabsTrigger value="ranking">点歌榜</TabsTrigger><TabsTrigger value="wishes">许愿学歌</TabsTrigger><TabsTrigger value="favorites">我的收藏<span className="nav-count">{favorites.length}</span></TabsTrigger></TabsList></header>
   <div className={"search-dock"+(view==='ranking'||view==='wishes'||view==='queue'?' search-dock-hidden':'')}> <div className="search-box"><Search size={20} /><Input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="搜索歌名或原编号，如 543" aria-label="搜索歌名或原编号" />{query && <button onClick={() => { setQuery(''); setPage(1); }} aria-label="清除搜索"><X size={17} /></button>}</div></div>
   <CommunityPanel data={shared} id={profileId} enter={enter} leave={leave} act={act} view={view} error={sharedError} busy={sharedBusy} openHost={()=>setHostMode(true)}/>
-  {view==='queue'&&<AudienceQueue user={profileId}/>} 
+  {view==='queue'&&<AudienceQueue user={profileId}/>}
   <main id="main"><div className="page-heading"><div><p className="eyebrow">SONG REQUESTS / {songs.length} TRACKS</p><h1>点歌单</h1></div></div>
   {catalogError&&<p className="catalog-sync-warning" role="status">{catalogError}</p>}
   {view === 'discover' && !query && <section className="catalog-featured" aria-label="点歌说明"><div className="catalog-banner"><img src="./night-city.png" alt="" /><div className="catalog-banner-copy"><p className="eyebrow">PICK A SONG.</p><h2>选一首，<br />唱给你听。</h2><p>{songs.length} 首歌曲 <span>·</span> {songs.filter(isSC).length} 首 SC 标记</p></div><AudioLines className="banner-icon" aria-hidden="true" /></div><aside className="catalog-favorites"><div className="note-top"><Heart size={21} /><span>MY FAVORITES</span></div><strong>{String(favorites.length).padStart(2, '0')}<span>首已收藏</span></strong><button onClick={() => { setView('favorites'); resetFilters(); }}>打开我的收藏<ArrowUpRight size={21} /></button></aside></section>}
@@ -154,5 +154,3 @@ export default function Home() {
   {notice && <div className="copy-notice" role="status"><Check size={18} /><span>{notice.text}</span><button onClick={() => setNotice(null)} aria-label="关闭提示"><X size={18} /></button></div>}
  </Tabs>;
 }
-
-
