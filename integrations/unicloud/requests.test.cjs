@@ -49,4 +49,12 @@ test('远程队列提交、去重和主播权限',async()=>{
  assert.equal((await call('requestAction',{token,requestId:freeId,status:'active'})).status,'active');
  assert.equal((await call('requestAction',{token,requestId:freeId,status:'done'})).status,'done');
  assert.equal((await call('submitRequest',{user:'viewer01',title:'河流 demo',kind:'play',requestId:crypto.randomUUID()})).request.status,'pending');
+ const blockedId=crypto.randomUUID();
+ result=await call('submitRequest',{user:'viewer02',title:'原唱歌曲',artist:'原唱歌手',kind:'play',requestId:blockedId});
+ assert.equal(result.request.artist,'原唱歌手');
+ assert.equal((await call('requestList')).requests.find(item=>item.id===blockedId).artist,'原唱歌手');
+ assert.equal((await call('requestAction',{token,requestId:blockedId,status:'queued'})).status,'queued');
+ assert.equal((await call('requestAction',{token,requestId:blockedId,status:'needsAttention',reason:'两边都不可播'})).status,'needsAttention');
+ assert.equal((await call('requestList')).requests.find(item=>item.id===blockedId).attentionReason,'两边都不可播');
+ assert.equal((await call('requestAction',{token,requestId:blockedId,status:'queued'})).status,'queued');
 });

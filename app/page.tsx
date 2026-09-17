@@ -27,6 +27,7 @@ export default function Home() {
  const [favorites, setFavorites] = useState<number[]>([]);
  const [profileId,setProfileId]=useState('');
  const [freeTitle,setFreeTitle]=useState('');
+ const [freeArtist,setFreeArtist]=useState('');
  const [freeBusy,setFreeBusy]=useState(false);
  const [shared,setShared]=useState<Community|null>(null);
  const [sharedError,setSharedError]=useState('');
@@ -75,9 +76,11 @@ export default function Home() {
   if(freeBusy)return;
   if(!profileId){notify('请先点击右上角头像，输入 ID 后再点歌');return}
   const title=freeTitle.normalize('NFKC').trim().replace(/\s+/g,' ');
+  const artist=freeArtist.normalize('NFKC').trim().replace(/\s+/g,' ');
   if(!title||title.length>100||/[\p{Cc}\p{Cf}]/u.test(title)){notify('请输入 1–100 字的有效歌名');return}
+  if(artist.length>80||/[\p{Cc}\p{Cf}]/u.test(artist)){notify('歌手名称需在 80 字以内');return}
   setFreeBusy(true);
-  try{await submitFreeRequest(profileId,title,kind);setFreeTitle('');notify(`${title} · ${kind==='sing'?'点唱':'点放'}已提交，可到待播单查看排位`)}catch(error){notify((error as Error).message)}finally{setFreeBusy(false)}
+  try{await submitFreeRequest(profileId,title,kind,artist);setFreeTitle('');setFreeArtist('');notify(`${title} · ${kind==='sing'?'点唱':'点放'}已提交，可到待播单查看排位`)}catch(error){notify((error as Error).message)}finally{setFreeBusy(false)}
  }
  async function copySong(song:Song){
   if(await copySongRequest(song,navigator.clipboard)){setCopiedId(song.id);notify('已复制：'+requestText(song))}
@@ -123,7 +126,7 @@ export default function Home() {
    return <button key={c} className={'filter' + (category === c ? ' active' : '')} aria-pressed={category === c} onClick={() => { setCategory(c); setPage(1); }}>{c}<span className="filter-count">{count}</span></button>;
   })}</div>
   <p className="result-summary" role="status">{visible.length ? '共 ' + visible.length + ' 首 · 当前显示第 ' + (start + 1) + '–' + Math.min(start + PAGE_SIZE, visible.length) + ' 条' : '找到 0 首歌曲'}{(query || category !== '全部') && <button onClick={resetFilters}>清除筛选<X size={14} /></button>}</p>
-  <form className="free-request" onSubmit={event=>{event.preventDefault();void freeRequest('play')}} aria-label="歌单外点歌"><div><span className="eyebrow">BEYOND THE LIST</span><strong>歌单外也能点</strong><small>输入歌名，直接加入同一待播单；不会加入主播歌单。</small></div><label className="sr-only" htmlFor="free-song-title">歌单外歌曲名称</label><Input id="free-song-title" value={freeTitle} onChange={event=>setFreeTitle(event.target.value)} maxLength={100} placeholder="输入歌单外的歌名" autoComplete="off"/><div className="free-request-actions"><button type="button" disabled={freeBusy} onClick={()=>void freeRequest('sing')}><Mic2 size={17}/>点唱</button><button type="submit" disabled={freeBusy}><Play size={17}/>{freeBusy?'提交中…':'点放'}</button></div></form>
+  <form className="free-request" onSubmit={event=>{event.preventDefault();void freeRequest('play')}} aria-label="歌单外点歌"><div><span className="eyebrow">BEYOND THE LIST</span><strong>歌单外也能点</strong><small>输入歌名，直接加入同一待播单；不会加入主播歌单。</small></div><label className="sr-only" htmlFor="free-song-title">歌单外歌曲名称</label><Input id="free-song-title" value={freeTitle} onChange={event=>setFreeTitle(event.target.value)} maxLength={100} placeholder="输入歌单外的歌名" autoComplete="off"/><label className="sr-only" htmlFor="free-song-artist">原唱歌手（选填）</label><Input id="free-song-artist" value={freeArtist} onChange={event=>setFreeArtist(event.target.value)} maxLength={80} placeholder="原唱歌手（选填，可避免误播翻唱）" autoComplete="off"/><div className="free-request-actions"><button type="button" disabled={freeBusy} onClick={()=>void freeRequest('sing')}><Mic2 size={17}/>点唱</button><button type="submit" disabled={freeBusy}><Play size={17}/>{freeBusy?'提交中…':'点放'}</button></div></form>
   {visible.length ? <>
    <ol className="song-grid" aria-label={view === 'favorites' ? '已收藏歌曲' : '歌曲列表'} start={start + 1}>{currentSongs.map(song => <li key={song.id} className={'song-item' + (favorites.includes(song.id) ? ' song-saved' : '')}>
     <span className="song-number" aria-label={'原编号 ' + song.id}>{String(song.id).padStart(3, '0')}</span>

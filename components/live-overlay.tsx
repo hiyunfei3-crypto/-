@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {loadRequests,type SongRequest} from '@/lib/request-demo';
 
-const statusText={pending:'待审核',queued:'排队中',active:'进行中',paused:'已暂停'} as const;
+const statusText={pending:'待审核',queued:'排队中',active:'进行中',paused:'已暂停',needsAttention:'需主播处理'} as const;
 
 export function LiveOverlay(){
  const [requests,setRequests]=useState<SongRequest[]>([]);
@@ -26,9 +26,9 @@ export function LiveOverlay(){
   return()=>{mounted=false;window.clearInterval(timer);window.removeEventListener('focus',onVisible);document.removeEventListener('visibilitychange',onVisible)};
  },[]);
  const {current,upNext,waitingCount}=useMemo(()=>{
-  const visible=requests.filter(item=>['pending','queued','active','paused'].includes(item.status));
+  const visible=requests.filter(item=>['pending','queued','active','paused','needsAttention'].includes(item.status));
   const current=visible.filter(item=>item.status==='active'||item.status==='paused').sort((a,b)=>a.createdAt-b.createdAt)[0];
-  const waiting=visible.filter(item=>item.id!==current?.id&&['pending','queued'].includes(item.status)).sort((a,b)=>a.createdAt-b.createdAt);
+  const waiting=visible.filter(item=>item.id!==current?.id&&['pending','queued','needsAttention'].includes(item.status)).sort((a,b)=>Number(a.status==='needsAttention')-Number(b.status==='needsAttention')||a.createdAt-b.createdAt);
   return {current,upNext:waiting.slice(0,4),waitingCount:waiting.length};
  },[requests]);
  return <div className="live-overlay"><section className="live-overlay-card" aria-label="直播间点歌记录">

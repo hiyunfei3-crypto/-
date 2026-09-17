@@ -1,0 +1,17 @@
+{
+  "bsonType": "object",
+  "required": ["songId", "title", "active", "createdAt", "updatedAt"],
+  "permission": {"read": false, "create": false, "update": false, "delete": false},
+  "properties": {
+    "_id": {"description": "数据库记录ID"},
+    "songId": {"bsonType": "int", "minimum": 1, "description": "公开歌曲编号"},
+    "title": {"bsonType": "string", "minLength": 1, "maxLength": 100},
+    "artist": {"bsonType": "string", "maxLength": 80},
+    "note": {"bsonType": "string", "maxLength": 200},
+    "url": {"bsonType": "string", "maxLength": 500, "description": "可选的视频或音乐播放链接"},
+    "isSC": {"bsonType": "bool"},
+    "active": {"bsonType": "bool"},
+    "createdAt": {"bsonType": "long"},
+    "updatedAt": {"bsonType": "long"}
+  }
+}

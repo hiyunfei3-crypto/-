@@ -1,5 +1,9 @@
 const endpoint='http://127.0.0.1:43871';
 
+export class PlaybackFailure extends Error{
+ constructor(message:string,public readonly outcome:'unavailable'|'unknown'){super(message);this.name='PlaybackFailure'}
+}
+
 export async function pairWithHost(code:string){
  if(!code.trim())throw Error('请先输入助手窗口显示的配对码');
  let response:Response;
@@ -11,15 +15,15 @@ export async function pairWithHost(code:string){
  return true;
 }
 
-export async function playOnHost(requestId:string,title:string,code:string){
+export async function playOnHost(requestId:string,title:string,code:string,artist=''){
  if(!code.trim())throw Error('请先输入本机助手显示的配对码');
  let response:Response;
  try{
-  response=await fetch(endpoint+'/play',{method:'POST',headers:{'Content-Type':'application/json','X-Host-Code':code.trim()},body:JSON.stringify({requestId,title}),signal:AbortSignal.timeout(90000)});
- }catch(error){throw Error(error instanceof DOMException&&error.name==='TimeoutError'?'网易云搜索或切歌超时，请稍后重试':'无法连接本机播放助手，请确认它已在主播电脑运行')}
- const data=await response.json().catch(()=>({error:'本机助手返回内容无效'})) as {ok?:boolean;error?:string;matchedTitle?:string;artist?:string;album?:string;durationMs?:number};
- if(!response.ok||!data.ok)throw Error(data.error||'网易云音乐未能开始播放');
- return data as {ok:true;matchedTitle:string;artist:string;album:string;durationMs:number};
+  response=await fetch(endpoint+'/play',{method:'POST',headers:{'Content-Type':'application/json','X-Host-Code':code.trim()},body:JSON.stringify({requestId,title,artist}),signal:AbortSignal.timeout(90000)});
+ }catch(error){throw new PlaybackFailure(error instanceof DOMException&&error.name==='TimeoutError'?'播放器搜索或切歌超时，请确认是否已经出声':'无法连接本机播放助手，请确认它已在主播电脑运行','unknown')}
+ const data=await response.json().catch(()=>({error:'本机助手返回内容无效'})) as {ok?:boolean;error?:string;outcome?:'unavailable'|'unknown';matchedTitle?:string;artist?:string;album?:string;player?:'netease'|'qqmusic';durationMs?:number;ambiguous?:boolean};
+ if(!response.ok||!data.ok)throw new PlaybackFailure(data.error||'音乐软件未能确认开始播放',data.outcome||'unknown');
+ return data as {ok:true;matchedTitle:string;artist:string;album:string;player:'netease'|'qqmusic';durationMs:number;ambiguous?:boolean};
 }
 
 export async function hostPlaybackStatus(code:string){

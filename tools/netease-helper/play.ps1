@@ -4,14 +4,14 @@
 )
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-function Fail([string]$reason) { @{ok=$false;error=$reason}|ConvertTo-Json -Compress; exit 0 }
+function Fail([string]$reason,[string]$outcome='unknown') { @{ok=$false;error=$reason;outcome=$outcome}|ConvertTo-Json -Compress; exit 0 }
 try {
  $player = Get-Process cloudmusic -ErrorAction SilentlyContinue | Where-Object {$_.MainWindowHandle -ne 0} | Select-Object -First 1
- if (!$player) { Fail '请先打开并登录网易云音乐 Windows 客户端' }
+ if (!$player) { Fail '请先打开并登录网易云音乐 Windows 客户端' 'unavailable' }
  $command = (Get-Item 'Registry::HKEY_CLASSES_ROOT\orpheus\shell\open\command').GetValue('')
- if ($command -notmatch '^"([^"]+cloudmusic\.exe)"') { Fail '找不到网易云音乐客户端播放协议' }
+ if ($command -notmatch '^"([^"]+cloudmusic\.exe)"') { Fail '找不到网易云音乐客户端播放协议' 'unavailable' }
  $exe = $Matches[1]
- if (!(Test-Path -LiteralPath $exe)) { Fail '网易云音乐客户端路径不存在' }
+ if (!(Test-Path -LiteralPath $exe)) { Fail '网易云音乐客户端路径不存在' 'unavailable' }
  $payload = @{type='song';id=$SongId;cmd='play'} | ConvertTo-Json -Compress
  $uri = 'orpheus://' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload))
  & $exe "--webcmd=$uri"

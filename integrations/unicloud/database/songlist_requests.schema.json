@@ -7,8 +7,10 @@
     "user": {"bsonType": "string"},
     "songId": {"bsonType": "int"},
     "songTitle": {"bsonType": "string"},
+    "artist": {"bsonType": "string"},
     "kind": {"bsonType": "string"},
     "status": {"bsonType": "string"},
+    "attentionReason": {"bsonType": "string"},
     "createdAt": {"bsonType": "long"},
     "updatedAt": {"bsonType": "long"}
   }
