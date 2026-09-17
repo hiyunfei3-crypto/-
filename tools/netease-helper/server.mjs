@@ -24,7 +24,8 @@ const server=http.createServer(async(req,res)=>{
  if(req.url==='/pair'){reply(res,200,{ok:true,message:'本机播放助手已连接'},origin);return}
  if(req.url==='/status'){
   const elapsedMs=activePlayback?Date.now()-activePlayback.startedAt:0;
-  reply(res,200,{ok:true,requestId:activePlayback?.requestId||null,ended:!!activePlayback?.durationMs&&elapsedMs>=activePlayback.durationMs+2000,remainingMs:activePlayback?.durationMs?Math.max(0,activePlayback.durationMs-elapsedMs):null,estimated:true},origin);return;
+  // Catalog duration is an estimate, not evidence that the desktop client finished playback.
+  reply(res,200,{ok:true,requestId:activePlayback?.requestId||null,ended:false,remainingMs:activePlayback?.durationMs?Math.max(0,activePlayback.durationMs-elapsedMs):null,estimated:true},origin);return;
  }
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2048){reply(res,413,{error:'请求太大'},origin);return}}
  let body;try{body=JSON.parse(raw)}catch{reply(res,400,{error:'请求格式错误'},origin);return}
