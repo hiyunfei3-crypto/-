@@ -16,7 +16,7 @@ export async function loadCatalog(includeInactive=false,token=''):Promise<Catalo
  if(!includeInactive)try{localStorage.setItem(cacheKey,JSON.stringify(result.songs))}catch{}
  return result;
 }
-export async function hostCatalogAction(action:'addSong'|'setSongActive',body:Record<string,unknown>){
+export async function hostCatalogAction(action:'addSong'|'setSongActive'|'setSongUrl',body:Record<string,unknown>){
  const result=await cloudCall(action,body);if(result?.error)throw Error(result.error);return result;
 }
 export async function hostAuthenticate(password:string){

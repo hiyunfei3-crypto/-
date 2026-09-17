@@ -1,20 +1,26 @@
+import {cloudCall} from './unicloud';
+
 export type RequestKind='sing'|'play';
 export type RequestStatus='pending'|'queued'|'active'|'paused'|'done'|'rejected';
-export type SongRequest={id:string;user:string;song:number;kind:RequestKind;status:RequestStatus;createdAt:number;note?:string};
-const key='jiuju-request-demo-v1';
-const eventName='jiuju-request-demo-change';
-const seed:SongRequest[]=[
- {id:'demo-1',user:'橘子汽水',song:14,kind:'sing',status:'pending',createdAt:Date.now()-180000},
- {id:'demo-2',user:'晚风听众',song:23,kind:'play',status:'queued',createdAt:Date.now()-120000},
- {id:'demo-3',user:'月亮邮差',song:7,kind:'sing',status:'queued',createdAt:Date.now()-60000},
-];
-export function loadRequests():SongRequest[]{
- try{const raw=localStorage.getItem(key);if(raw)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(seed));return seed}catch{return seed}
+export type SongRequest={id:string;user:string;song:number|null;songTitle:string;kind:RequestKind;status:RequestStatus;createdAt:number;updatedAt?:number};
+
+export async function loadRequests(token=''):Promise<SongRequest[]>{
+ const result=await cloudCall('requestList',token?{token}:{});
+ if(!Array.isArray(result?.requests))throw Error('待播单返回格式不正确');
+ return result.requests;
 }
-export function saveRequests(value:SongRequest[]){localStorage.setItem(key,JSON.stringify(value));window.dispatchEvent(new Event(eventName))}
-export function submitRequest(user:string,song:number,kind:RequestKind){
- const list=loadRequests();
- if(list.some(item=>item.user===user&&item.song===song&&!['done','rejected'].includes(item.status)))throw Error('你已经点过这首歌了，请等待主播处理');
- saveRequests([...list,{id:crypto.randomUUID(),user,song,kind,status:'pending',createdAt:Date.now()}]);
+export async function submitRequest(user:string,song:number,kind:RequestKind){
+ const result=await cloudCall('submitRequest',{user,song,kind,requestId:crypto.randomUUID()});
+ if(!result?.request)throw Error('点歌提交失败');
+ return result.request as SongRequest;
 }
-export const requestEvent=eventName;
+export async function submitFreeRequest(user:string,title:string,kind:RequestKind){
+ const result=await cloudCall('submitRequest',{user,title,kind,requestId:crypto.randomUUID()});
+ if(!result?.request)throw Error('点歌提交失败');
+ return result.request as SongRequest;
+}
+export async function updateRequest(token:string,requestId:string,status:RequestStatus){
+ const result=await cloudCall('requestAction',{token,requestId,status});
+ if(!result?.ok)throw Error('请求状态更新失败');
+ return result;
+}

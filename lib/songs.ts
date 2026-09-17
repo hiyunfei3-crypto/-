@@ -1,4 +1,4 @@
-export type Song = { id: number; title: string; note?: string; isSC?: boolean; active?: boolean };
+export type Song = { id: number; title: string; note?: string; url?: string; isSC?: boolean; active?: boolean };
 
 export let songs: Song[] = [
   {

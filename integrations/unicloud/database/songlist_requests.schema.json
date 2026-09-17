@@ -1,0 +1,15 @@
+{
+  "bsonType": "object",
+  "permission": {"read": false, "create": false, "update": false, "delete": false},
+  "required": ["user", "songTitle", "kind", "status", "createdAt", "updatedAt"],
+  "properties": {
+    "_id": {"bsonType": "string"},
+    "user": {"bsonType": "string"},
+    "songId": {"bsonType": "int"},
+    "songTitle": {"bsonType": "string"},
+    "kind": {"bsonType": "string"},
+    "status": {"bsonType": "string"},
+    "createdAt": {"bsonType": "long"},
+    "updatedAt": {"bsonType": "long"}
+  }
+}

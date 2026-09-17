@@ -6,7 +6,7 @@ export default {
    if (event.origin !== location.origin || event.source !== parent) return;
    const msg = event.data;
    if (!msg || msg.channel !== 'jiuju-cloud-v1' || typeof msg.requestId !== 'string') return;
-   if (!['state','login','like','copy','wish','vote','health'].includes(msg.action)) return;
+   if (!['state','login','like','copy','wish','vote','health','catalog','hostChallenge','hostLogin','hostSongs','addSong','setSongActive','setSongUrl','requestList','submitRequest','requestAction'].includes(msg.action)) return;
    try {
     const response = await uniCloud.callFunction({name:'songlist-api',data:{action:msg.action,body:msg.body || {}}});
     parent.postMessage({channel:'jiuju-cloud-v1',requestId:msg.requestId,result:response.result},location.origin);

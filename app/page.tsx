@@ -3,7 +3,7 @@ import { BlindBox } from '@/components/blind-box';
 import { CommunityPanel } from '@/components/community-panel';
 import { community, type Community } from '@/lib/community';
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, AudioLines, ChevronLeft, ChevronRight, Heart, Mic2, Play, Search, X, Check, Copy } from 'lucide-react';
+import { ArrowUpRight, AudioLines, ChevronLeft, ChevronRight, MonitorPlay, Heart, Mic2, Play, Search, X, Check, Copy } from 'lucide-react';
 import { copySongRequest, requestText } from '@/lib/song-request';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { AudienceQueue, HostConsole } from '@/components/request-demo';
 import type { RequestKind } from '@/lib/request-demo';
-import { submitRequest } from '@/lib/request-demo';
+import { submitFreeRequest,submitRequest } from '@/lib/request-demo';
 import {cachedCatalog,loadCatalog} from '@/lib/catalog';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationEllipsis } from '@/components/ui/pagination';
 import { songs, replaceSongs, categories, cleanFavorites, findSongs, matchesCategory, isSC, PAGE_SIZE, type Song, type Category } from '@/lib/songs';
@@ -26,6 +26,8 @@ export default function Home() {
  const [page, setPage] = useState(1);
  const [favorites, setFavorites] = useState<number[]>([]);
  const [profileId,setProfileId]=useState('');
+ const [freeTitle,setFreeTitle]=useState('');
+ const [freeBusy,setFreeBusy]=useState(false);
  const [shared,setShared]=useState<Community|null>(null);
  const [sharedError,setSharedError]=useState('');
  const [sharedBusy,setSharedBusy]=useState(false);
@@ -49,9 +51,14 @@ export default function Home() {
   return()=>{active=false};
  },[]);
  useEffect(()=>{
-  let active=true;replaceSongs(cachedCatalog());setCatalogRevision(value=>value+1);
-  void loadCatalog().then(result=>{if(active){replaceSongs(result.songs);setCatalogRevision(value=>value+1);setCatalogError('')}}).catch(()=>{if(active)setCatalogError('歌曲目录暂未同步，当前显示缓存歌单')});
-  return()=>{active=false};
+  let active=true;
+  let localDemo:Song[]|null=null;
+  if(location.hostname==='localhost'||location.hostname==='127.0.0.1')try{const saved=JSON.parse(localStorage.getItem('jiuju-host-catalog-demo-v1')||'null');if(Array.isArray(saved)&&saved.length)localDemo=saved.filter(song=>song.active)}catch{}
+  replaceSongs(localDemo||cachedCatalog());setCatalogRevision(value=>value+1);
+  if(!localDemo)void loadCatalog().then(result=>{if(active){replaceSongs(result.songs);setCatalogRevision(value=>value+1);setCatalogError('')}}).catch(()=>{if(active)setCatalogError('歌曲目录暂未同步，当前显示缓存歌单')});
+  const syncCatalog=(event:Event)=>{const next=(event as CustomEvent<Song[]>).detail;if(Array.isArray(next)){replaceSongs(next);setCatalogRevision(value=>value+1)}};
+  window.addEventListener('song-catalog-changed',syncCatalog);
+  return()=>{active=false;window.removeEventListener('song-catalog-changed',syncCatalog)};
  },[]);
  const [ready, setReady] = useState(false);
  const [storageError, setStorageError] = useState(false);
@@ -60,9 +67,17 @@ export default function Home() {
  const notify = (text: string) => setNotice({ text });
  useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(null), 3000); return () => clearTimeout(timer); }, [notice]);
  useEffect(()=>{if(copiedId===null)return;const timer=setTimeout(()=>setCopiedId(null),2200);return()=>clearTimeout(timer)},[copiedId]);
- function directRequest(song:Song,kind:RequestKind){
+ async function directRequest(song:Song,kind:RequestKind){
   if(!profileId){notify('请先点击右上角头像，输入 ID 后再点歌');return}
-  try{submitRequest(profileId,song.id,kind);notify(`${song.title} · ${kind==='sing'?'点唱':'点放'}已提交，可到待播单查看排位`)}catch(error){notify((error as Error).message)}
+  try{await submitRequest(profileId,song.id,kind);notify(`${song.title} · ${kind==='sing'?'点唱':'点放'}已提交，可到待播单查看排位`)}catch(error){notify((error as Error).message)}
+ }
+ async function freeRequest(kind:RequestKind){
+  if(freeBusy)return;
+  if(!profileId){notify('请先点击右上角头像，输入 ID 后再点歌');return}
+  const title=freeTitle.normalize('NFKC').trim().replace(/\s+/g,' ');
+  if(!title||title.length>100||/[\p{Cc}\p{Cf}]/u.test(title)){notify('请输入 1–100 字的有效歌名');return}
+  setFreeBusy(true);
+  try{await submitFreeRequest(profileId,title,kind);setFreeTitle('');notify(`${title} · ${kind==='sing'?'点唱':'点放'}已提交，可到待播单查看排位`)}catch(error){notify((error as Error).message)}finally{setFreeBusy(false)}
  }
  async function copySong(song:Song){
   if(await copySongRequest(song,navigator.clipboard)){setCopiedId(song.id);notify('已复制：'+requestText(song))}
@@ -108,11 +123,12 @@ export default function Home() {
    return <button key={c} className={'filter' + (category === c ? ' active' : '')} aria-pressed={category === c} onClick={() => { setCategory(c); setPage(1); }}>{c}<span className="filter-count">{count}</span></button>;
   })}</div>
   <p className="result-summary" role="status">{visible.length ? '共 ' + visible.length + ' 首 · 当前显示第 ' + (start + 1) + '–' + Math.min(start + PAGE_SIZE, visible.length) + ' 条' : '找到 0 首歌曲'}{(query || category !== '全部') && <button onClick={resetFilters}>清除筛选<X size={14} /></button>}</p>
+  <form className="free-request" onSubmit={event=>{event.preventDefault();void freeRequest('play')}} aria-label="歌单外点歌"><div><span className="eyebrow">BEYOND THE LIST</span><strong>歌单外也能点</strong><small>输入歌名，直接加入同一待播单；不会加入主播歌单。</small></div><label className="sr-only" htmlFor="free-song-title">歌单外歌曲名称</label><Input id="free-song-title" value={freeTitle} onChange={event=>setFreeTitle(event.target.value)} maxLength={100} placeholder="输入歌单外的歌名" autoComplete="off"/><div className="free-request-actions"><button type="button" disabled={freeBusy} onClick={()=>void freeRequest('sing')}><Mic2 size={17}/>点唱</button><button type="submit" disabled={freeBusy}><Play size={17}/>{freeBusy?'提交中…':'点放'}</button></div></form>
   {visible.length ? <>
    <ol className="song-grid" aria-label={view === 'favorites' ? '已收藏歌曲' : '歌曲列表'} start={start + 1}>{currentSongs.map(song => <li key={song.id} className={'song-item' + (favorites.includes(song.id) ? ' song-saved' : '')}>
     <span className="song-number" aria-label={'原编号 ' + song.id}>{String(song.id).padStart(3, '0')}</span>
     <span className="song-name">{song.title}</span>
-    <div className="song-request-actions"><button className="song-action sing" onClick={()=>directRequest(song,'sing')}><Mic2/>点唱</button><button className="song-action play" onClick={()=>directRequest(song,'play')}><Play/>点放</button><button className="song-action copy" onClick={()=>void copySong(song)}>{copiedId===song.id?<Check/>:<Copy/>}{copiedId===song.id?'已复制':'复制'}</button></div>
+    <div className="song-request-actions"><button title="点唱" aria-label={`点唱 ${song.title}`} className="song-action sing" onClick={()=>directRequest(song,'sing')}><Mic2/></button><button title="点放" aria-label={`点放 ${song.title}`} className="song-action play" onClick={()=>directRequest(song,'play')}><Play/></button><button title={copiedId===song.id?'已复制':'复制'} aria-label={`复制 ${song.title}`} className="song-action copy" onClick={()=>void copySong(song)}>{copiedId===song.id?<Check/>:<Copy/>}</button>{song.url&&/^https?:\/\//i.test(song.url)?<a title="打开视频播放" aria-label={`打开 ${song.title} 的视频播放页面`} className="song-action video" href={song.url} target="_blank" rel="noopener noreferrer"><MonitorPlay/></a>:<button title="暂无视频" aria-label={`${song.title} 暂无视频`} className="song-action video" disabled><MonitorPlay/></button>}</div>
     <button className={'favorite-button' + (favorites.includes(song.id) ? ' saved' : '')} aria-label={(favorites.includes(song.id) ? '取消收藏' : '收藏') + '第 ' + song.id + ' 首 ' + song.title} aria-pressed={favorites.includes(song.id)} onClick={() => toggleFavorite(song)} disabled={!ready}><Heart size={19} fill={favorites.includes(song.id) ? 'currentColor' : 'none'} /></button>
    </li>)}</ol>
    <div className="catalog-paging"><span className="page-label">第 {currentPage} / {pageCount} 页</span><Pagination aria-label="歌曲列表分页"><PaginationContent>
@@ -120,7 +136,7 @@ export default function Home() {
     {pageNumbers.map((n, i) => <PaginationItem key={n} className="page-number-item">{i > 0 && n - pageNumbers[i - 1] > 1 && <PaginationEllipsis />}<PaginationLink href="#collection" isActive={currentPage === n} aria-label={'第 ' + n + ' 页'} onClick={event => { event.preventDefault(); goToPage(n); }}>{n}</PaginationLink></PaginationItem>)}
     <PaginationItem><Button variant="ghost" className="page-direction" disabled={currentPage === pageCount} onClick={() => goToPage(currentPage + 1)} aria-label="下一页"><span>下一页</span><ChevronRight size={18} /></Button></PaginationItem>
    </PaginationContent></Pagination></div>
-  </> : <Empty className="empty-state"><EmptyHeader>{view === 'favorites' ? <Heart size={34} /> : <Search size={34} />}<EmptyTitle className="empty-title">{query || category !== '全部' ? '没有找到这首歌' : '喜欢的歌，留在这里'}</EmptyTitle><EmptyDescription>{query || category !== '全部' ? '试试歌名中的几个字，或者输入原编号。' : '点击歌曲旁的爱心，就能加入你的收藏。'}</EmptyDescription></EmptyHeader><Button className="lime-button" onClick={() => { if (!query && category === '全部') setView('discover'); resetFilters(); }}>{query || category !== '全部' ? '清除筛选' : '浏览全部曲目'}<ArrowUpRight size={16} /></Button></Empty>}
+  </> : <Empty className="empty-state"><EmptyHeader>{view === 'favorites' ? <Heart size={34} /> : <Search size={34} />}<EmptyTitle className="empty-title">{query || category !== '全部' ? '没有找到这首歌' : '喜欢的歌，留在这里'}</EmptyTitle><EmptyDescription>{query || category !== '全部' ? '歌单外也能点：在上方填写歌名，选择点唱或点放。' : '点击歌曲旁的爱心，就能加入你的收藏。'}</EmptyDescription></EmptyHeader><Button className="lime-button" onClick={() => { if (!query && category === '全部') setView('discover'); resetFilters(); }}>{query || category !== '全部' ? '清除筛选' : '浏览全部曲目'}<ArrowUpRight size={16} /></Button></Empty>}
  </>;
  return <Tabs value={view} onValueChange={value => { setView(String(value)); resetFilters(); }} className={'site-shell'+(view==='ranking'||view==='wishes'||view==='queue'?' community-view':'')}>
   <a href="#collection" className="skip-link">跳到歌曲列表</a>
