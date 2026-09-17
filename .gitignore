@@ -37,3 +37,6 @@ next-env.d.ts
 /outputs/
 /work/
 /dist-pages/
+.music-browser-profile/
+tools/netease-helper/.music-browser-profile/
+.npm-cache/

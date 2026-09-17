@@ -45,7 +45,12 @@ export function HostConsole({onClose}:{onClose:()=>void}){
   const played=status==='active'&&item.kind==='play'?await playOnHost(item.id,item.songTitle,pairCode,item.artist):null;
   await updateRequest(token,item.id,status);await refresh();
   setMessage(played?`${item.songTitle} 已在${played.player==='qqmusic'?'QQ 音乐':'网易云'}开始播放${played.artist?` · ${played.artist}`:''}${played.ambiguous?'；同名版本较多，请主播核对':''}`:'待播单已更新');
- }catch(err){setMessage((err as Error).message)}finally{setBusyId('')}}
+ }catch(err){
+  if(status==='active'&&item.kind==='play'&&err instanceof PlaybackFailure&&err.outcome==='unavailable'){
+   try{await updateRequest(token,item.id,'needsAttention',err.message.slice(0,120));await refresh()}catch{}
+  }
+  setMessage((err as Error).message);
+ }finally{setBusyId('')}}
  useEffect(()=>{
   if(!autoPlay||!token||pairState!=='connected')return;
   const tick=async()=>{
@@ -58,6 +63,7 @@ export function HostConsole({onClose}:{onClose:()=>void}){
      if(playing.kind==='sing')return;
      const state=await hostPlaybackStatus(pairCode);
      if(state.requestId!==playing.id)throw Error('助手当前歌曲与待播单不一致，自动续播已暂停');
+     if(!state.playing&&!state.ended)throw Error('网页播放器已暂停或播放状态无法确认，自动续播已暂停');
      if(state.estimated&&state.remainingMs===0)throw Error('预计曲长已到，但播放器未确认歌曲结束。自动续播已暂停，请主播确认后点击“完成”');
      if(state.remainingMs===null)throw Error('播放器未提供歌曲时长，自动续播已暂停');
      if(state.ended&&!state.estimated){await updateRequest(token,playing.id,'done');await refresh();setMessage(`${playing.songTitle} 已播放完毕`)}

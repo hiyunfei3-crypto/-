@@ -7,7 +7,7 @@ export class PlaybackAttemptError extends Error{
 }
 const normalize=value=>String(value||'').normalize('NFKC').trim().toLocaleLowerCase();
 
-async function findSong(title,artist,cover){
+export async function findSong(title,artist,cover){
  for(let offset=0;offset<1000;offset+=100){
   const url=new URL('https://music.163.com/api/search/get');
   url.search=new URLSearchParams({s:artist&&!cover?`${title} ${artist}`:title,type:'1',limit:'100',offset:String(offset)}).toString();

@@ -28,7 +28,7 @@ export async function playOnHost(requestId:string,title:string,code:string,artis
 
 export async function hostPlaybackStatus(code:string){
  const response=await fetch(endpoint+'/status',{method:'POST',headers:{'X-Host-Code':code.trim()},signal:AbortSignal.timeout(5000)});
- const data=await response.json() as {ok?:boolean;error?:string;requestId?:string|null;ended?:boolean;estimated?:boolean;remainingMs?:number|null};
+ const data=await response.json() as {ok?:boolean;error?:string;requestId?:string|null;ended?:boolean;playing?:boolean;estimated?:boolean;remainingMs?:number|null};
  if(!response.ok||!data.ok)throw Error(data.error||'无法读取本机助手播放状态');
  return data;
 }

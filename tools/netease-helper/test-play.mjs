@@ -14,7 +14,7 @@ try{
  });
  const result=await response.json();
  if(!response.ok)throw Error(result.error||'播放失败');
- console.log(`客户端已切换到：${result.matchedTitle}${result.artist?` · ${result.artist}`:''}（${result.player==='qqmusic'?'QQ 音乐':'网易云'}${result.songId?`，歌曲 ID：${result.songId}`:''}）`);
+ console.log(`网页已确认播放：${result.matchedTitle}${result.artist?` · ${result.artist}`:''}（${result.player==='qqmusic'?'QQ 音乐':'网易云'}）`);
 }catch(error){
  console.error(error.message);
  process.exitCode=1;
