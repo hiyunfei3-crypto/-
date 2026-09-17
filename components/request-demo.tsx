@@ -4,6 +4,7 @@ import {Mic2,Play,Radio} from 'lucide-react';
 import {hostAuthenticate} from '@/lib/catalog';
 import {hostPlaybackStatus,pairWithHost,playOnHost} from '@/lib/host-helper';
 import {loadRequests,updateRequest,type RequestStatus,type SongRequest} from '@/lib/request-demo';
+import {songs} from '@/lib/songs';
 import {SongManager} from './song-manager';
 import {HostOverlayLinks} from './host-overlay-links';
 import {nextAutoPlayRequest} from '@/lib/auto-play-queue';
@@ -24,7 +25,8 @@ export function AudienceQueue({user}:{user:string}){
   return aNow-bNow||a.createdAt-b.createdAt;
  }),[list]);
  const mine=queue.findIndex(item=>item.user===user);
- return <section className="audience-queue" aria-labelledby="audience-queue-title"><div className="audience-queue-heading"><div><p className="eyebrow">UP NEXT</p><h1 id="audience-queue-title">待播单</h1><p>点唱和点放按提交时间统一排队，主播处理后这里会更新。</p><button onClick={()=>void refresh()}>刷新待播单</button>{error&&<p role="alert">{error}</p>}</div><div className={'my-position '+(mine>=0?'has-position':'')}><span>{!user?'登录后查看自己的排位':mine>=0?'你的歌排在':'你还没有正在排队的歌'}</span>{user&&mine>=0&&<><strong>第 {mine+1} 位</strong><small>{mine===0?'马上轮到你':`前面还有 ${mine} 首`}</small></>}</div></div><div className="audience-queue-list">{queue.map((item,index)=><article key={item.id} className={'audience-queue-row '+item.status+(item.user===user&&user?' mine':'')}><b>{String(index+1).padStart(2,'0')}</b><span className={'queue-kind '+item.kind}>{item.kind==='sing'?<Mic2/>:<Play/>}{item.kind==='sing'?'点唱':'点放'}</span><div><strong>{item.songTitle||`歌曲 #${item.song}`}</strong><span>{item.user}{item.user===user&&user?'（我）':''} · {labels[item.status]}</span></div></article>)}{!queue.length&&<div className="audience-queue-empty"><Radio/><h2>待播单还是空的</h2><p>去歌曲列表选一首，提交点唱或点放吧。</p></div>}</div></section>;
+
+ return <section className="audience-queue" aria-labelledby="audience-queue-title"><div className="audience-queue-heading"><div><p className="eyebrow">UP NEXT</p><h1 id="audience-queue-title">待播单</h1><p>点唱和点放按提交时间统一排队，主播处理后这里会立即更新。</p></div><div className={'my-position '+(mine>=0?'has-position':'')}><span>{!user?'登录后查看自己的排位':mine>=0?'你的歌排在':'你还没有正在排队的歌'}</span>{user&&mine>=0&&<><strong>第 {mine+1} 位</strong><small>{mine===0?'马上轮到你':`前面还有 ${mine} 首`}</small></>}</div></div><div className="audience-queue-list">{queue.map((item,index)=>{const song=songs.find(value=>value.id===item.song);const isMine=!!user&&item.user===user;return <article key={item.id} className={'audience-queue-row '+item.status+(isMine?' mine':'')}><b>{String(index+1).padStart(2,'0')}</b><span className={'queue-kind '+item.kind}>{item.kind==='sing'?<Mic2/>:<Play/>}{item.kind==='sing'?'点唱':'点放'}</span><div><strong>{song?.title||`歌曲 #${item.song}`}{song?.artist&&<small className="song-artist">{song.artist}</small>}</strong><span>{item.user}{isMine?'（我）':''} · {labels[item.status]}</span></div>{isMine&&<em>我的点歌</em>}</article>})}{!queue.length&&<div className="audience-queue-empty"><Radio/><h2>待播单还是空的</h2><p>去歌曲列表选一首，提交点唱或点放吧。</p></div>}</div></section>
 }
 export function HostConsole({onClose}:{onClose:()=>void}){
  const [token,setToken]=useState(''),[password,setPassword]=useState(''),[loginBusy,setLoginBusy]=useState(false),[busyId,setBusyId]=useState(''),[message,setMessage]=useState('');

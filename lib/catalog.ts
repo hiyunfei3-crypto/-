@@ -6,7 +6,7 @@ export type CatalogSong=Song&{active:boolean;note:string;isSC:boolean};
 export type CatalogResponse={songs:CatalogSong[];version:number;error?:string};
 
 export function cachedCatalog():CatalogSong[]{
- try{const value=JSON.parse(localStorage.getItem(cacheKey)||'null');if(Array.isArray(value)&&value.length)return value}catch{}
+ try{const value=JSON.parse(localStorage.getItem(cacheKey)||'null');if(Array.isArray(value)&&value.length)return value.map((song:any)=>({...song,artist:song.artist||''}))}catch{}
  return fallbackSongs.map(song=>({...song,note:song.note||'',isSC:song.isSC??/\(sc\)$/i.test(song.title),active:true}));
 }
 export async function loadCatalog(includeInactive=false,token=''):Promise<CatalogResponse>{
