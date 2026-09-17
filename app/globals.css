@@ -218,3 +218,4 @@ body:has(.live-overlay){color:#f4f9f3}
 .host-overlay-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.host-overlay-actions button,.host-overlay-actions a{min-height:39px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #ffffff26;border-radius:9px;background:#ffffff0b;color:#e6f3e9;font-size:12px;white-space:nowrap}.host-overlay-actions button:hover,.host-overlay-actions a:hover{border-color:#d1fc72;color:#d1fc72}
 @media(max-width:850px){.host-overlay-links{grid-template-columns:44px minmax(0,1fr)}.host-overlay-actions{grid-column:2;justify-content:flex-start}}
 @media(max-width:480px){.host-overlay-links{grid-template-columns:1fr;padding:18px}.host-overlay-icon{display:none}.host-overlay-actions{grid-column:1}.live-overlay{padding:8px}.live-overlay-card{border-radius:17px}}
+.host-auto-review{margin-top:-7px;color:#f0f5ec}.host-auto-review small{color:#a9b8a9}
