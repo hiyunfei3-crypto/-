@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseNeteasePlayerState,parsePlayerClock,selectExactSong} from './web-playback.mjs';
+import {neteaseProgressWrapped,parseNeteasePlayerState,parsePlayerClock,selectExactSong} from './web-playback.mjs';
 
 const rows=[
  {title:'茶汤 (Live)',artists:['郁可唯'],index:0},
@@ -26,4 +26,10 @@ test('网易云播放条关联歌曲编号和实际进度',()=>{
  assert.deepEqual(parseNeteasePlayerState({href:'/song?id=1437251162',title:'河流 demo',time:'00:13 / 04:20',playClass:'pas j-flag'}),{
   songId:'1437251162',title:'河流 demo',positionMs:13000,durationMs:260000,playingClass:true,
  });
+});
+
+test('只有临近结尾后跳回开头才算自然播完',()=>{
+ assert.equal(neteaseProgressWrapped(257000,{positionMs:56000,durationMs:260000}),true);
+ assert.equal(neteaseProgressWrapped(172000,{positionMs:56000,durationMs:260000}),false);
+ assert.equal(neteaseProgressWrapped(257000,{positionMs:180000,durationMs:260000}),false);
 });

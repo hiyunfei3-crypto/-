@@ -15,6 +15,10 @@ export function parseNeteasePlayerState(raw){
  return {songId:raw.href.match(/[?&]id=(\d+)/)?.[1]||'',title:raw.title.trim(),positionMs:parsePlayerClock(positionText),durationMs:parsePlayerClock(durationText),playingClass:/\bpas\b/.test(raw.playClass)};
 }
 
+export function neteaseProgressWrapped(lastPositionMs,state){
+ return Number.isFinite(lastPositionMs)&&state.durationMs>0&&lastPositionMs>=state.durationMs-5000&&state.positionMs<lastPositionMs-5000&&state.positionMs<=Math.min(60000,state.durationMs/4);
+}
+
 async function neteasePlayerState(page){
  const raw=await page.evaluate(()=>{
   const root=document.querySelector('.m-playbar');
@@ -87,7 +91,13 @@ export class WebPlayback{
  async stopAll(){
   const neteasePage=this.browser.page('netease');
   const neteaseState=await neteasePlayerState(neteasePage).catch(()=>null);
-  if(neteaseState?.playingClass)await neteasePage.locator('.m-playbar a[data-action="play"]').click({timeout:5000});
+  let advancing=false;
+  if(neteaseState?.songId&&!neteaseState.playingClass&&neteaseState.positionMs!==null){
+   await wait(1200);
+   const latest=await neteasePlayerState(neteasePage).catch(()=>null);
+   advancing=latest?.songId===neteaseState.songId&&latest.positionMs>neteaseState.positionMs;
+  }
+  if(neteaseState?.playingClass||advancing)await neteasePage.locator('.m-playbar a[data-action="play"]').click({timeout:5000});
   for(const source of ['netease','qqmusic']){
    const origin=source==='netease'?'https://music.163.com':'https://y.qq.com';
    for(const page of this.browser.context.pages().filter(item=>item.url().startsWith(origin))){
@@ -96,6 +106,7 @@ export class WebPlayback{
     }
    }
   }
+  this.current=null;
  }
  async qq(title,artist='',cover=false){
   const page=this.browser.page('qqmusic');
@@ -145,19 +156,21 @@ export class WebPlayback{
    throw new PlaybackAttemptError('网易云已收到播放指令，但未确认目标音频开始播放','unknown');
   }
   if(media)await watchEnd(media);
-  this.current=media?{source:'netease',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'netease',kind:'ui',songId:String(song.id),page,durationMs:ui.durationMs,lastPositionMs:ui.positionMs,endObservations:0};
+  this.current=media?{source:'netease',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'netease',kind:'ui',songId:String(song.id),page,durationMs:ui.durationMs,lastPositionMs:ui.positionMs};
   return {ok:true,player:'netease',matchedTitle:song.name,artist:(song.artists||[]).map(item=>item.name).join(' / '),durationMs:this.current.durationMs,ambiguous:!!song.ambiguous,verification:media?'html-media-progress':'player-bar-progress'};
  }
  async status(){
   if(!this.current)return {ended:false,estimated:false,remainingMs:null};
   if(this.current.kind==='ui'){
+   if(this.current.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
    const state=await neteasePlayerState(this.current.page);
    if(state.songId!==this.current.songId||state.positionMs===null||!state.durationMs)return {ended:false,playing:false,estimated:false,remainingMs:null};
+   const wrapped=neteaseProgressWrapped(this.current.lastPositionMs,state);
    const progressing=state.positionMs>this.current.lastPositionMs;
-   const nearEnd=state.positionMs>=state.durationMs-1000;
-   this.current.endObservations=nearEnd&&!state.playingClass&&!progressing?this.current.endObservations+1:0;
    this.current.lastPositionMs=state.positionMs;
-   return {ended:this.current.endObservations>=2,playing:!nearEnd&&(state.playingClass||progressing),estimated:false,remainingMs:Math.max(0,state.durationMs-state.positionMs)};
+   const ended=wrapped;
+   if(ended)this.current.ended=true;
+   return {ended,playing:!ended&&(state.playingClass||progressing),estimated:false,remainingMs:ended?0:Math.max(0,state.durationMs-state.positionMs)};
   }
   const {frame,src,durationMs,startedAt}=this.current;
   let ended=false,playing=false;

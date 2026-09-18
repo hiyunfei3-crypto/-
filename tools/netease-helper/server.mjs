@@ -42,7 +42,7 @@ const server=http.createServer(async(req,res)=>{
   if(state.playing&&!state.ended){reply(res,409,{error:'上一首仍在播放，请先完成或停止播放',outcome:'unknown'},origin);return}
  }
  running=true;
- try{await playback.stopAll();const result=await playAcrossPlayers(title.trim(),artist.trim(),{netease:playback.netease.bind(playback),qq:playback.qq.bind(playback)});activePlayback={requestId,player:result.player,startedAt:Date.now(),durationMs:result.durationMs};completed.set(requestId,result);if(completed.size>200)completed.delete(completed.keys().next().value);reply(res,200,result,origin)}
+ try{await playback.stopAll();activePlayback=null;const result=await playAcrossPlayers(title.trim(),artist.trim(),{netease:playback.netease.bind(playback),qq:playback.qq.bind(playback)});activePlayback={requestId,player:result.player,startedAt:Date.now(),durationMs:result.durationMs};completed.set(requestId,result);if(completed.size>200)completed.delete(completed.keys().next().value);reply(res,200,result,origin)}
  catch(err){reply(res,422,{error:err.message||'播放失败',outcome:err.outcome||'unknown'},origin)}finally{running=false}
 });
 server.on('error',async error=>{
