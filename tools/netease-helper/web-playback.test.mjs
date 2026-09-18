@@ -59,3 +59,11 @@ test('过早切到其他歌曲会停播，但不会谎报原曲已播完',async(
  assert.equal(playback.current.ended,false);
  assert.equal(playback.current.interrupted,true);
 });
+
+test('切歌时不会把未加载的播放条当成正在播放',async()=>{
+ let evaluations=0;
+ const page={evaluate:async()=>{evaluations++;return {href:'/song?id=2',title:'下一首',time:'00:00 / 00:00',playClass:'ply'}}};
+ const playback=new WebPlayback({page:async()=>page,context:{pages:()=>[]}});
+ await playback.stopAll();
+ assert.equal(evaluations,1);
+});
