@@ -131,12 +131,12 @@ export class WebPlayback{
   const neteasePage=await this.browser.page('netease',{reopen:false});
   const neteaseState=neteasePage?await neteasePlayerState(neteasePage).catch(()=>null):null;
   let advancing=false;
-  if(neteaseState?.songId&&neteaseState.durationMs>0&&!neteaseState.playingClass&&neteaseState.positionMs!==null){
+  if(!this.current?.ended&&neteaseState?.songId&&neteaseState.durationMs>0&&!neteaseState.playingClass&&neteaseState.positionMs!==null){
    await wait(1200);
    const latest=await neteasePlayerState(neteasePage).catch(()=>null);
    advancing=latest?.songId===neteaseState.songId&&latest.durationMs>0&&latest.positionMs>neteaseState.positionMs;
   }
-  if(neteaseState?.playingClass||advancing){
+  if(!this.current?.ended&&neteaseState?.durationMs>0&&(neteaseState.playingClass||advancing)){
    const clicked=await neteasePage.evaluate(()=>{const button=document.querySelector('.m-playbar a[data-action="play"]');button?.click();return !!button});
    if(!clicked)throw Error('网易云播放条不可用，无法安全切歌');
   }

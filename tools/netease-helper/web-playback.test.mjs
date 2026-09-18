@@ -67,3 +67,13 @@ test('切歌时不会把未加载的播放条当成正在播放',async()=>{
  await playback.stopAll();
  assert.equal(evaluations,1);
 });
+
+test('上一首已被监测器停掉后可直接进入下一首',async()=>{
+ let evaluations=0;
+ const page={evaluate:async()=>{evaluations++;return {href:'/song?id=2',title:'其他歌曲',time:'00:12 / 03:00',playClass:'pas'}}};
+ const playback=new WebPlayback({page:async()=>page,context:{pages:()=>[]}});
+ playback.current={source:'netease',kind:'ui',ended:true};
+ await playback.stopAll();
+ assert.equal(evaluations,1);
+ assert.equal(playback.current,null);
+});
