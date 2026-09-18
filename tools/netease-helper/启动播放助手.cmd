@@ -6,6 +6,7 @@ if errorlevel 1 goto no_node
 echo Starting music helper...
 echo Log in to Netease and QQ Music in the Chrome window opened by this helper.
 echo Keep this window open and enter the pairing code in the host console.
+echo Press Ctrl+C here to stop the helper safely.
 echo.
 node server.mjs
 echo.

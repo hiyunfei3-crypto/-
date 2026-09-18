@@ -6,7 +6,7 @@
 node tools/netease-helper/server.mjs
 ```
 
-助手会打开独立的 Chrome 窗口，分别进入网易云音乐与 QQ 音乐。请在**助手打开的窗口**手动登录两个账号；普通 Chrome 或 Codex 内的网页标签不会共享登录。保持 Chrome 和显示配对码的助手终端运行。登录资料仅保存在 `tools/netease-helper/.music-browser-profile/`，此目录已加入 `.gitignore`。助手只监听本机 `127.0.0.1:43871`，把终端显示的配对码填入主播控制台，点击“连接助手”。
+助手会打开独立的 Chrome 窗口，分别进入网易云音乐与 QQ 音乐。请在**助手打开的窗口**手动登录两个账号；普通 Chrome 或 Codex 内的网页标签不会共享登录。保持 Chrome 和显示配对码的助手终端运行。结束时在助手终端按 `Ctrl+C`，让浏览器正常关闭并保存会话。登录资料仅保存在 `tools/netease-helper/.music-browser-profile/`，此目录已加入 `.gitignore`。助手只监听本机 `127.0.0.1:43871`，把终端显示的配对码填入主播控制台，点击“连接助手”。
 
 可用以下命令先做本机试播：
 
