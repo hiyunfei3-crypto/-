@@ -4,6 +4,41 @@ const normalize=value=>String(value||'').normalize('NFKC').trim().toLocaleLowerC
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const qqSearch='https://y.qq.com/n/ryqq_v2/search';
 
+export function parsePlayerClock(value){
+ const parts=String(value||'').trim().split(':').map(Number);
+ if(parts.length<2||parts.length>3||parts.some(part=>!Number.isInteger(part)||part<0))return null;
+ return parts.reduce((total,part)=>total*60+part,0)*1000;
+}
+
+export function parseNeteasePlayerState(raw){
+ const [,positionText='',durationText='']=raw.time.match(/(\d{1,2}:\d{2}(?::\d{2})?)\s*\/\s*(\d{1,2}:\d{2}(?::\d{2})?)/)||[];
+ return {songId:raw.href.match(/[?&]id=(\d+)/)?.[1]||'',title:raw.title.trim(),positionMs:parsePlayerClock(positionText),durationMs:parsePlayerClock(durationText),playingClass:/\bpas\b/.test(raw.playClass)};
+}
+
+async function neteasePlayerState(page){
+ const raw=await page.evaluate(()=>{
+  const root=document.querySelector('.m-playbar');
+  const song=root?.querySelector('.words a.name');
+  const time=root?.querySelector('.m-pbar .time')?.textContent||'';
+  const play=root?.querySelector('a[data-action="play"]');
+  return {href:song?.getAttribute('href')||'',title:song?.getAttribute('title')||song?.textContent||'',time,playClass:play?.className||''};
+ });
+ return parseNeteasePlayerState(raw);
+}
+
+async function confirmedNeteaseUI(page,songId){
+ let first=null;
+ for(let i=0;i<24;i++){
+  const state=await neteasePlayerState(page).catch(()=>null);
+  if(state?.songId===String(songId)&&state.durationMs>0&&state.positionMs!==null){
+   if(first?.songId!==state.songId||state.positionMs<first.positionMs)first=state;
+   else if(state.positionMs>=first.positionMs+1000)return state;
+  }
+  await wait(500);
+ }
+ return null;
+}
+
 export function selectExactSong(rows,title,artist='',cover=false){
  const matches=rows.filter(row=>normalize(row.title)===normalize(title));
  const chosen=matches.find(row=>artist?cover?!row.artists.some(name=>normalize(name)===normalize(artist)):row.artists.some(name=>normalize(name)===normalize(artist)):true);
@@ -50,6 +85,9 @@ async function watchEnd(media){
 export class WebPlayback{
  constructor(browser){this.browser=browser;this.current=null}
  async stopAll(){
+  const neteasePage=this.browser.page('netease');
+  const neteaseState=await neteasePlayerState(neteasePage).catch(()=>null);
+  if(neteaseState?.playingClass)await neteasePage.locator('.m-playbar a[data-action="play"]').click({timeout:5000});
   for(const source of ['netease','qqmusic']){
    const origin=source==='netease'?'https://music.163.com':'https://y.qq.com';
    for(const page of this.browser.context.pages().filter(item=>item.url().startsWith(origin))){
@@ -99,18 +137,28 @@ export class WebPlayback{
   try{await frame.locator('a[data-res-action="play"][data-res-id="'+song.id+'"]').first().click({timeout:15000})}
   catch{throw new PlaybackAttemptError('网易云网页未提供可操作的播放按钮，请检查登录状态','unknown')}
   const media=await confirmedMedia(this.browser,'netease',before);
-  if(!media){
+  const ui=media?null:await confirmedNeteaseUI(page,song.id);
+  if(!media&&!ui){
    const text=await page.locator('body').innerText().catch(()=>'');
    if(/登录获取更懂你的好音乐|扫码登录/.test(text))throw new PlaybackAttemptError('网易云音乐网页尚未登录；请在助手打开的 Chrome 窗口登录后重试','unknown');
    if(/暂无版权|因合作方要求|VIP.*才能|开通.*会员/.test(text))throw new PlaybackAttemptError('网易云网页提示版权或会员限制','unavailable');
    throw new PlaybackAttemptError('网易云已收到播放指令，但未确认目标音频开始播放','unknown');
   }
-  await watchEnd(media);
-  this.current={source:'netease',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000};
-  return {ok:true,player:'netease',matchedTitle:song.name,artist:(song.artists||[]).map(item=>item.name).join(' / '),durationMs:media.duration*1000,ambiguous:!!song.ambiguous,verification:'html-media-progress'};
+  if(media)await watchEnd(media);
+  this.current=media?{source:'netease',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'netease',kind:'ui',songId:String(song.id),page,durationMs:ui.durationMs,lastPositionMs:ui.positionMs,endObservations:0};
+  return {ok:true,player:'netease',matchedTitle:song.name,artist:(song.artists||[]).map(item=>item.name).join(' / '),durationMs:this.current.durationMs,ambiguous:!!song.ambiguous,verification:media?'html-media-progress':'player-bar-progress'};
  }
  async status(){
   if(!this.current)return {ended:false,estimated:false,remainingMs:null};
+  if(this.current.kind==='ui'){
+   const state=await neteasePlayerState(this.current.page);
+   if(state.songId!==this.current.songId||state.positionMs===null||!state.durationMs)return {ended:false,playing:false,estimated:false,remainingMs:null};
+   const progressing=state.positionMs>this.current.lastPositionMs;
+   const nearEnd=state.positionMs>=state.durationMs-1000;
+   this.current.endObservations=nearEnd&&!state.playingClass&&!progressing?this.current.endObservations+1:0;
+   this.current.lastPositionMs=state.positionMs;
+   return {ended:this.current.endObservations>=2,playing:!nearEnd&&(state.playingClass||progressing),estimated:false,remainingMs:Math.max(0,state.durationMs-state.positionMs)};
+  }
   const {frame,src,durationMs,startedAt}=this.current;
   let ended=false,playing=false;
   try{
