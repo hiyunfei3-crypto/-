@@ -66,6 +66,7 @@ export class WebPlayback{
   try{await page.locator('.songlist__item').first().waitFor({state:'visible',timeout:15000})}
   catch{
    const text=await page.locator('body').innerText().catch(()=>'');
+   if(/QQ登录|微信登录|查看更多内容，请下载客户端/.test(text))throw new PlaybackAttemptError('QQ 音乐网页尚未登录，或网页版不提供搜索结果；请在助手打开的 Chrome 窗口登录后重试','unknown');
    if(/没有找到相关歌曲|没有搜索到|暂无搜索结果/.test(text))throw new PlaybackAttemptError(`QQ 音乐没有找到「${title}」`,'unavailable');
    throw new PlaybackAttemptError('QQ 音乐网页搜索没有返回可识别的歌曲','unknown');
   }
@@ -95,11 +96,12 @@ export class WebPlayback{
   const before=await mediaStates(this.browser,'netease');
   await page.goto(`https://music.163.com/#/song?id=${song.id}`,{waitUntil:'domcontentloaded',timeout:30000});
   const frame=page.frameLocator('iframe#g_iframe');
-  try{await frame.locator('.u-btni-play').first().click({timeout:15000})}
+  try{await frame.locator('a[data-res-action="play"][data-res-id="'+song.id+'"]').first().click({timeout:15000})}
   catch{throw new PlaybackAttemptError('网易云网页未提供可操作的播放按钮，请检查登录状态','unknown')}
   const media=await confirmedMedia(this.browser,'netease',before);
   if(!media){
    const text=await page.locator('body').innerText().catch(()=>'');
+   if(/登录获取更懂你的好音乐|扫码登录/.test(text))throw new PlaybackAttemptError('网易云音乐网页尚未登录；请在助手打开的 Chrome 窗口登录后重试','unknown');
    if(/暂无版权|因合作方要求|VIP.*才能|开通.*会员/.test(text))throw new PlaybackAttemptError('网易云网页提示版权或会员限制','unavailable');
    throw new PlaybackAttemptError('网易云已收到播放指令，但未确认目标音频开始播放','unknown');
   }
