@@ -45,11 +45,19 @@ const server=http.createServer(async(req,res)=>{
  try{await playback.stopAll();const result=await playAcrossPlayers(title.trim(),artist.trim(),{netease:playback.netease.bind(playback),qq:playback.qq.bind(playback)});activePlayback={requestId,player:result.player,startedAt:Date.now(),durationMs:result.durationMs};completed.set(requestId,result);if(completed.size>200)completed.delete(completed.keys().next().value);reply(res,200,result,origin)}
  catch(err){reply(res,422,{error:err.message||'播放失败',outcome:err.outcome||'unknown'},origin)}finally{running=false}
 });
-server.on('error',error=>{
+server.on('error',async error=>{
  if(error.code==='EADDRINUSE')console.error('播放助手已经在运行。请使用原窗口显示的配对码；若找不到原窗口，先关闭旧助手再启动。');
  else console.error('播放助手启动失败：'+error.message);
  process.exitCode=1;
+ await musicBrowser.close().catch(()=>{});
 });
+async function shutdown(){
+ server.close();
+ await musicBrowser.close().catch(()=>{});
+ process.exit();
+}
+process.once('SIGINT',shutdown);
+process.once('SIGTERM',shutdown);
 try{
  await musicBrowser.start();
  server.listen(port,'127.0.0.1',()=>{

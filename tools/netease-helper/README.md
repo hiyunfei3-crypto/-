@@ -1,12 +1,12 @@
 # 双音乐网页播放助手（本地测试版）
 
-在主播 Windows 电脑的项目根目录运行：
+在主播 Windows 电脑双击 `tools/netease-helper/启动播放助手.cmd`。也可以从项目根目录运行：
 
 ```powershell
 node tools/netease-helper/server.mjs
 ```
 
-助手会打开独立的 Chrome 窗口，分别进入网易云音乐与 QQ 音乐。请在该窗口手动登录两个账号，并保持窗口及助手终端运行。登录资料仅保存在 `tools/netease-helper/.music-browser-profile/`，此目录已加入 `.gitignore`。助手只监听本机 `127.0.0.1:43871`，把终端显示的配对码填入主播控制台，点击“连接助手”。
+助手会打开独立的 Chrome 窗口，分别进入网易云音乐与 QQ 音乐。请在**助手打开的窗口**手动登录两个账号；普通 Chrome 或 Codex 内的网页标签不会共享登录。保持 Chrome 和显示配对码的助手终端运行。登录资料仅保存在 `tools/netease-helper/.music-browser-profile/`，此目录已加入 `.gitignore`。助手只监听本机 `127.0.0.1:43871`，把终端显示的配对码填入主播控制台，点击“连接助手”。
 
 可用以下命令先做本机试播：
 
