@@ -128,8 +128,8 @@ export class WebPlayback{
  }
  async stopAll(){
   if(this.neteaseMonitor){clearInterval(this.neteaseMonitor);this.neteaseMonitor=null}
-  const neteasePage=this.browser.page('netease');
-  const neteaseState=await neteasePlayerState(neteasePage).catch(()=>null);
+  const neteasePage=await this.browser.page('netease',{reopen:false});
+  const neteaseState=neteasePage?await neteasePlayerState(neteasePage).catch(()=>null):null;
   let advancing=false;
   if(neteaseState?.songId&&!neteaseState.playingClass&&neteaseState.positionMs!==null){
    await wait(1200);
@@ -148,7 +148,7 @@ export class WebPlayback{
   this.current=null;
  }
  async qq(title,artist='',cover=false){
-  const page=this.browser.page('qqmusic');
+  const page=await this.browser.page('qqmusic');
   const query=new URL(qqSearch);query.searchParams.set('w',artist&&!cover?`${title} ${artist}`:title);query.searchParams.set('t','song');
   await page.goto(query.toString(),{waitUntil:'domcontentloaded',timeout:30000});
   try{await page.locator('.songlist__item').first().waitFor({state:'visible',timeout:15000})}
@@ -180,7 +180,7 @@ export class WebPlayback{
  async netease(title,artist='',cover=false){
   let song;
   try{song=await findSong(title,artist,cover)}catch(error){throw error}
-  const page=this.browser.page('netease');
+  const page=await this.browser.page('netease');
   const before=await mediaStates(this.browser,'netease');
   await page.goto(`https://music.163.com/#/song?id=${song.id}`,{waitUntil:'domcontentloaded',timeout:30000});
   const frame=page.frameLocator('iframe#g_iframe');

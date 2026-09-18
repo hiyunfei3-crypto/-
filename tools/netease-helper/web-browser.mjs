@@ -19,9 +19,16 @@ export class MusicBrowser{
    if(page.url()==='about:blank')await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>{});
   }
  }
- page(source){
-  const page=this.pages.get(source);
-  if(!page||page.isClosed())throw Error(`${source} 音乐网页已关闭，请重新启动助手`);
+ async page(source,{reopen=true}={}){
+  if(!this.context)throw Error('音乐浏览器已关闭，请重新启动助手');
+  let page=this.pages.get(source);
+  if(page&&!page.isClosed())return page;
+  if(!reopen)return null;
+  const url=home[source];
+  if(!url)throw Error('未知音乐网页');
+  page=this.context.pages().find(item=>!item.isClosed()&&item.url().startsWith(new URL(url).origin))||await this.context.newPage();
+  this.pages.set(source,page);
+  if(page.url()==='about:blank')await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
   return page;
  }
  async close(){await this.context?.close();this.context=null;this.pages.clear()}
