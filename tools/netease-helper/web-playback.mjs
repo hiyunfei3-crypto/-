@@ -187,6 +187,12 @@ export class WebPlayback{
   const before=await mediaStates(this.browser,'netease');
   await page.goto(`https://music.163.com/#/song?id=${song.id}`,{waitUntil:'domcontentloaded',timeout:30000});
   const frame=page.frameLocator('iframe#g_iframe');
+  await frame.locator('#content-operation').waitFor({state:'attached',timeout:15000}).catch(()=>{});
+  const blocked=frame.locator('#content-operation a.u-btni-play-dis');
+  if(await blocked.count()){
+   const reason=await blocked.first().getAttribute('title').catch(()=>null);
+   throw new PlaybackAttemptError(`网易云明确不可播放「${song.name}」${reason?`：${reason}`:''}`,'unavailable');
+  }
   try{await frame.locator('a[data-res-action="play"][data-res-id="'+song.id+'"]').first().click({timeout:15000})}
   catch{throw new PlaybackAttemptError('网易云网页未提供可操作的播放按钮，请检查登录状态','unknown')}
   const media=await confirmedMedia(this.browser,'netease',before);
