@@ -169,7 +169,8 @@ export class WebPlayback{
   const selected=selectExactSong(rows,title,artist,cover);
   if(!selected)throw new PlaybackAttemptError(`QQ 音乐未找到${artist&&!cover?'指定歌手的':'同名'}可识别版本「${title}」`,'unavailable');
   const before=await mediaStates(this.browser,'qqmusic');
-  await page.locator('.songlist__item').nth(selected.index).locator('.list_menu__play').click({timeout:10000});
+  try{await page.locator('.songlist__item').nth(selected.index).locator('.list_menu__play').evaluate(button=>button.click())}
+  catch{throw new PlaybackAttemptError('QQ 音乐网页播放按钮不可用','unknown')}
   const media=await confirmedMedia(this.browser,'qqmusic',before);
   if(!media){
    const text=await page.locator('body').innerText().catch(()=>'');
