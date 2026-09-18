@@ -98,6 +98,17 @@ export class WebPlayback{
   const current=this.current;
   return {current:current?{source:current.source,kind:current.kind||'media',songId:current.songId||null,positionMs:current.lastPositionMs??null,durationMs:current.durationMs??null,ended:!!current.ended,interrupted:!!current.interrupted}:null,netease:this.lastNeteaseState,error:this.lastNeteaseError};
  }
+ async qqDiagnostics(){
+  const page=await this.browser.page('qqmusic',{reopen:false});
+  if(!page)return null;
+  return page.evaluate(()=>({
+   title:document.title,
+   media:[...document.querySelectorAll('audio,video')].map(item=>({time:item.currentTime,duration:item.duration,paused:item.paused,ready:item.readyState,src:(item.currentSrc||item.src||'').slice(0,120)})),
+   controls:[...document.querySelectorAll('[class*="player"],[class*="playbar"],[class*="song_info"]')].filter(item=>{
+    const text=(item.textContent||'').trim();return text&&text.length<160&&(/\d{1,2}:\d{2}/.test(text)||/晴天|播放|暂停/.test(text));
+   }).slice(-35).map(item=>({tag:item.tagName,class:item.className,text:(item.textContent||'').trim().slice(0,120),title:item.getAttribute('title')})),
+  }));
+ }
  startNeteaseMonitor(){
   if(this.neteaseMonitor)clearInterval(this.neteaseMonitor);
   this.neteaseMonitor=setInterval(()=>void this.sampleNeteaseUI(),500);

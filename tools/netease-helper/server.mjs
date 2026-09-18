@@ -26,7 +26,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method!=='POST'||!['/play','/pair','/status','/diagnostics'].includes(req.url||'')){reply(res,404,{error:'未找到操作'},origin);return}
  if(req.headers['x-host-code']!==code){reply(res,401,{error:'配对码错误'},origin);return}
  if(req.url==='/pair'){reply(res,200,{ok:true,message:'本机播放助手已连接'},origin);return}
- if(req.url==='/diagnostics'){reply(res,200,{ok:true,...playback.diagnostics(),tabs:await musicBrowser.state()},origin);return}
+ if(req.url==='/diagnostics'){reply(res,200,{ok:true,...playback.diagnostics(),qq:await playback.qqDiagnostics().catch(()=>null),tabs:await musicBrowser.state()},origin);return}
  if(req.url==='/status'){
   try{reply(res,200,{ok:true,requestId:activePlayback?.requestId||null,...await playback.status()},origin)}
   catch(error){reply(res,503,{error:error.message||'无法读取网页播放状态'},origin)}
