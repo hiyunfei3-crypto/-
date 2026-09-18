@@ -93,21 +93,28 @@ async function watchEnd(media){
 }
 
 export class WebPlayback{
- constructor(browser){this.browser=browser;this.current=null;this.neteaseMonitor=null;this.neteaseMonitorBusy=false}
+ constructor(browser){this.browser=browser;this.current=null;this.neteaseMonitor=null;this.neteaseMonitorBusy=false;this.lastNeteaseState=null;this.lastNeteaseError=null}
+ diagnostics(){
+  const current=this.current;
+  return {current:current?{source:current.source,kind:current.kind||'media',songId:current.songId||null,positionMs:current.lastPositionMs??null,durationMs:current.durationMs??null,ended:!!current.ended,interrupted:!!current.interrupted}:null,netease:this.lastNeteaseState,error:this.lastNeteaseError};
+ }
  startNeteaseMonitor(){
   if(this.neteaseMonitor)clearInterval(this.neteaseMonitor);
   this.neteaseMonitor=setInterval(()=>void this.sampleNeteaseUI(),500);
  }
  async sampleNeteaseUI(){
   const current=this.current;
-  if(this.neteaseMonitorBusy||current?.kind!=='ui'||current.ended)return;
+  if(this.neteaseMonitorBusy||current?.kind!=='ui'||current.ended||current.interrupted)return;
   this.neteaseMonitorBusy=true;
   try{
    const state=await neteasePlayerState(current.page);
+   this.lastNeteaseState=state;
+   this.lastNeteaseError=null;
    if(this.current!==current)return;
-   if(neteaseTrackCompleted(current,state)){
+   const completed=neteaseTrackCompleted(current,state);
+   if((state.songId&&state.songId!==current.songId)||completed){
     await this.stopAll();
-    this.current={...current,ended:true};
+    this.current={...current,ended:completed,interrupted:!completed};
     return;
    }
    if(state.songId===current.songId&&state.positionMs!==null&&state.durationMs){
@@ -115,8 +122,8 @@ export class WebPlayback{
     current.lastPositionMs=state.positionMs;
     current.durationMs=state.durationMs;
    }
-  }catch{
-   // A transient page reload must not be mistaken for a completed song.
+  }catch(error){
+   this.lastNeteaseError=String(error?.message||error);
   }finally{this.neteaseMonitorBusy=false}
  }
  async stopAll(){
@@ -196,6 +203,7 @@ export class WebPlayback{
   if(!this.current)return {ended:false,estimated:false,remainingMs:null};
   if(this.current.kind==='ui'){
    if(this.current.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
+   if(this.current.interrupted)return {ended:false,playing:false,estimated:false,remainingMs:null};
    await this.sampleNeteaseUI();
    if(this.current?.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
    const state=await neteasePlayerState(this.current.page);

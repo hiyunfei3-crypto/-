@@ -50,3 +50,12 @@ test('本机监测到网易云自动接歌后停止网页并记住播完状态',
  assert.equal(stopped,true);
  assert.equal(playback.current.ended,true);
 });
+
+test('过早切到其他歌曲会停播，但不会谎报原曲已播完',async()=>{
+ const playback=new WebPlayback({});
+ playback.stopAll=async()=>{playback.current=null};
+ playback.current={kind:'ui',songId:'1',durationMs:51000,lastPositionMs:15000,page:{evaluate:async()=>({href:'/song?id=2',title:'下一首',time:'00:01 / 03:00',playClass:'pas'})}};
+ await playback.sampleNeteaseUI();
+ assert.equal(playback.current.ended,false);
+ assert.equal(playback.current.interrupted,true);
+});
