@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {neteaseProgressWrapped,parseNeteasePlayerState,parsePlayerClock,selectExactSong} from './web-playback.mjs';
+import {neteaseProgressWrapped,neteaseTrackCompleted,parseNeteasePlayerState,parsePlayerClock,selectExactSong} from './web-playback.mjs';
 
 const rows=[
  {title:'茶汤 (Live)',artists:['郁可唯'],index:0},
@@ -32,4 +32,11 @@ test('只有临近结尾后跳回开头才算自然播完',()=>{
  assert.equal(neteaseProgressWrapped(257000,{positionMs:56000,durationMs:260000}),true);
  assert.equal(neteaseProgressWrapped(172000,{positionMs:56000,durationMs:260000}),false);
  assert.equal(neteaseProgressWrapped(257000,{positionMs:180000,durationMs:260000}),false);
+});
+
+test('网易云自动切到另一首只在原曲接近结尾时认定播完',()=>{
+ const current={songId:'1',durationMs:51000,lastPositionMs:48000};
+ assert.equal(neteaseTrackCompleted(current,{songId:'2',positionMs:1000,durationMs:180000}),true);
+ assert.equal(neteaseTrackCompleted({...current,lastPositionMs:15000},{songId:'2',positionMs:1000,durationMs:180000}),false);
+ assert.equal(neteaseTrackCompleted(current,{songId:'1',positionMs:5000,durationMs:51000}),true);
 });

@@ -16,7 +16,13 @@ export function parseNeteasePlayerState(raw){
 }
 
 export function neteaseProgressWrapped(lastPositionMs,state){
- return Number.isFinite(lastPositionMs)&&state.durationMs>0&&lastPositionMs>=state.durationMs-5000&&state.positionMs<lastPositionMs-5000&&state.positionMs<=Math.min(60000,state.durationMs/4);
+ return Number.isFinite(lastPositionMs)&&state.durationMs>0&&lastPositionMs>=state.durationMs-10000&&state.positionMs<lastPositionMs-5000&&state.positionMs<=Math.min(60000,state.durationMs/4);
+}
+
+export function neteaseTrackCompleted(current,state){
+ if(!current?.durationMs||current.lastPositionMs<current.durationMs-10000)return false;
+ if(state.songId&&state.songId!==current.songId)return true;
+ return state.songId===current.songId&&neteaseProgressWrapped(current.lastPositionMs,state);
 }
 
 async function neteasePlayerState(page){
@@ -164,13 +170,16 @@ export class WebPlayback{
   if(this.current.kind==='ui'){
    if(this.current.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
    const state=await neteasePlayerState(this.current.page);
+   if(neteaseTrackCompleted(this.current,state)){
+    const completed=this.current;
+    await this.stopAll();
+    this.current={...completed,ended:true};
+    return {ended:true,playing:false,estimated:false,remainingMs:0};
+   }
    if(state.songId!==this.current.songId||state.positionMs===null||!state.durationMs)return {ended:false,playing:false,estimated:false,remainingMs:null};
-   const wrapped=neteaseProgressWrapped(this.current.lastPositionMs,state);
    const progressing=state.positionMs>this.current.lastPositionMs;
    this.current.lastPositionMs=state.positionMs;
-   const ended=wrapped;
-   if(ended)this.current.ended=true;
-   return {ended,playing:!ended&&(state.playingClass||progressing),estimated:false,remainingMs:ended?0:Math.max(0,state.durationMs-state.positionMs)};
+   return {ended:false,playing:state.playingClass||progressing,estimated:false,remainingMs:Math.max(0,state.durationMs-state.positionMs)};
   }
   const {frame,src,durationMs,startedAt}=this.current;
   let ended=false,playing=false;
