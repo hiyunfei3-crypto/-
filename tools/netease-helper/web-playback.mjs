@@ -93,8 +93,34 @@ async function watchEnd(media){
 }
 
 export class WebPlayback{
- constructor(browser){this.browser=browser;this.current=null}
+ constructor(browser){this.browser=browser;this.current=null;this.neteaseMonitor=null;this.neteaseMonitorBusy=false}
+ startNeteaseMonitor(){
+  if(this.neteaseMonitor)clearInterval(this.neteaseMonitor);
+  this.neteaseMonitor=setInterval(()=>void this.sampleNeteaseUI(),500);
+ }
+ async sampleNeteaseUI(){
+  const current=this.current;
+  if(this.neteaseMonitorBusy||current?.kind!=='ui'||current.ended)return;
+  this.neteaseMonitorBusy=true;
+  try{
+   const state=await neteasePlayerState(current.page);
+   if(this.current!==current)return;
+   if(neteaseTrackCompleted(current,state)){
+    await this.stopAll();
+    this.current={...current,ended:true};
+    return;
+   }
+   if(state.songId===current.songId&&state.positionMs!==null&&state.durationMs){
+    if(state.positionMs>current.lastPositionMs)current.lastProgressAt=Date.now();
+    current.lastPositionMs=state.positionMs;
+    current.durationMs=state.durationMs;
+   }
+  }catch{
+   // A transient page reload must not be mistaken for a completed song.
+  }finally{this.neteaseMonitorBusy=false}
+ }
  async stopAll(){
+  if(this.neteaseMonitor){clearInterval(this.neteaseMonitor);this.neteaseMonitor=null}
   const neteasePage=this.browser.page('netease');
   const neteaseState=await neteasePlayerState(neteasePage).catch(()=>null);
   let advancing=false;
@@ -162,24 +188,19 @@ export class WebPlayback{
    throw new PlaybackAttemptError('网易云已收到播放指令，但未确认目标音频开始播放','unknown');
   }
   if(media)await watchEnd(media);
-  this.current=media?{source:'netease',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'netease',kind:'ui',songId:String(song.id),page,durationMs:ui.durationMs,lastPositionMs:ui.positionMs};
+  this.current=media?{source:'netease',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'netease',kind:'ui',songId:String(song.id),page,durationMs:ui.durationMs,lastPositionMs:ui.positionMs,lastProgressAt:Date.now()};
+  if(ui)this.startNeteaseMonitor();
   return {ok:true,player:'netease',matchedTitle:song.name,artist:(song.artists||[]).map(item=>item.name).join(' / '),durationMs:this.current.durationMs,ambiguous:!!song.ambiguous,verification:media?'html-media-progress':'player-bar-progress'};
  }
  async status(){
   if(!this.current)return {ended:false,estimated:false,remainingMs:null};
   if(this.current.kind==='ui'){
    if(this.current.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
+   await this.sampleNeteaseUI();
+   if(this.current?.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
    const state=await neteasePlayerState(this.current.page);
-   if(neteaseTrackCompleted(this.current,state)){
-    const completed=this.current;
-    await this.stopAll();
-    this.current={...completed,ended:true};
-    return {ended:true,playing:false,estimated:false,remainingMs:0};
-   }
    if(state.songId!==this.current.songId||state.positionMs===null||!state.durationMs)return {ended:false,playing:false,estimated:false,remainingMs:null};
-   const progressing=state.positionMs>this.current.lastPositionMs;
-   this.current.lastPositionMs=state.positionMs;
-   return {ended:false,playing:state.playingClass||progressing,estimated:false,remainingMs:Math.max(0,state.durationMs-state.positionMs)};
+   return {ended:false,playing:state.playingClass||Date.now()-this.current.lastProgressAt<3000,estimated:false,remainingMs:Math.max(0,state.durationMs-state.positionMs)};
   }
   const {frame,src,durationMs,startedAt}=this.current;
   let ended=false,playing=false;

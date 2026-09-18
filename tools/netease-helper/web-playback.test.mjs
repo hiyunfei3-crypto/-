@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {neteaseProgressWrapped,neteaseTrackCompleted,parseNeteasePlayerState,parsePlayerClock,selectExactSong} from './web-playback.mjs';
+import {WebPlayback,neteaseProgressWrapped,neteaseTrackCompleted,parseNeteasePlayerState,parsePlayerClock,selectExactSong} from './web-playback.mjs';
 
 const rows=[
  {title:'茶汤 (Live)',artists:['郁可唯'],index:0},
@@ -39,4 +39,14 @@ test('网易云自动切到另一首只在原曲接近结尾时认定播完',()=
  assert.equal(neteaseTrackCompleted(current,{songId:'2',positionMs:1000,durationMs:180000}),true);
  assert.equal(neteaseTrackCompleted({...current,lastPositionMs:15000},{songId:'2',positionMs:1000,durationMs:180000}),false);
  assert.equal(neteaseTrackCompleted(current,{songId:'1',positionMs:5000,durationMs:51000}),true);
+});
+
+test('本机监测到网易云自动接歌后停止网页并记住播完状态',async()=>{
+ const playback=new WebPlayback({});
+ let stopped=false;
+ playback.stopAll=async()=>{stopped=true;playback.current=null};
+ playback.current={kind:'ui',songId:'1',durationMs:51000,lastPositionMs:48000,page:{evaluate:async()=>({href:'/song?id=2',title:'下一首',time:'00:01 / 03:00',playClass:'pas'})}};
+ await playback.sampleNeteaseUI();
+ assert.equal(stopped,true);
+ assert.equal(playback.current.ended,true);
 });
