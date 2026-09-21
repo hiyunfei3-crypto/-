@@ -40,3 +40,5 @@ next-env.d.ts
 .music-browser-profile/
 tools/netease-helper/.music-browser-profile/
 .npm-cache/
+.preview*.log
+overlay-preview.png
