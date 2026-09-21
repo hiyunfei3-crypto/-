@@ -3,15 +3,15 @@ import {useEffect,useState} from 'react';
 import {Copy,ExternalLink,MonitorPlay} from 'lucide-react';
 
 const themes=[
- {id:'glass',name:'深色玻璃',hint:'清晰耐看'},
+ {id:'liquid',name:'液态玻璃',hint:'通透悬浮'},
+ {id:'ancient',name:'古风卷轴',hint:'雅致国风'},
+ {id:'modern',name:'现代信息板',hint:'利落科技'},
  {id:'minimal',name:'极简字幕',hint:'画面最轻'},
- {id:'neon',name:'霓虹蓝紫',hint:'游戏直播'},
- {id:'warm',name:'暖金电台',hint:'温暖醒目'},
 ] as const;
 
 export function HostOverlayLinks({onMessage}:{onMessage:(message:string)=>void}){
  const [url,setUrl]=useState('');
- const [theme,setTheme]=useState<(typeof themes)[number]['id']>('glass');
+ const [theme,setTheme]=useState<(typeof themes)[number]['id']>('liquid');
  useEffect(()=>{const saved=localStorage.getItem('songlist-overlay-theme');if(themes.some(item=>item.id===saved))setTheme(saved as typeof theme)},[]);
  useEffect(()=>{const next=new URL('overlay/',window.location.href);next.searchParams.set('theme',theme);setUrl(next.href);localStorage.setItem('songlist-overlay-theme',theme)},[theme]);
  async function copy(){

@@ -3,14 +3,14 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {loadRequests,type SongRequest} from '@/lib/request-demo';
 
 const statusText={pending:'待审核',queued:'排队中',active:'进行中',paused:'已暂停',needsAttention:'需主播处理'} as const;
-const overlayThemes=['glass','minimal','neon','warm'] as const;
+const overlayThemes=['liquid','ancient','modern','minimal'] as const;
 type OverlayTheme=typeof overlayThemes[number];
 
 export function LiveOverlay(){
  const [requests,setRequests]=useState<SongRequest[]>([]);
  const [loaded,setLoaded]=useState(false);
  const [syncError,setSyncError]=useState(false);
- const [theme,setTheme]=useState<OverlayTheme>('glass');
+ const [theme,setTheme]=useState<OverlayTheme>('liquid');
  const inFlight=useRef(false);
  useEffect(()=>{
   document.documentElement.classList.add('overlay-page');
