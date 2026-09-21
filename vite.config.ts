@@ -19,5 +19,5 @@ export default defineConfig(async () => {
  process.env.WRANGLER_LOG_PATH ??= '.wrangler/logs';
  process.env.MINIFLARE_REGISTRY_PATH ??= '.wrangler/registry';
  const { cloudflare } = await import('@cloudflare/vite-plugin');
- return { css: { postcss: { plugins: [tailwindcss()] } }, server: isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : undefined, plugins: [vinext(), sites(), cloudflare({ viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] }, config: localBindingConfig })] };
+ return { css: { postcss: { plugins: [tailwindcss()] } }, server: { watch: { ignored: ['**/tools/netease-helper/.music-browser-profile/**'], ...(isCodexSeatbeltSandbox?{useFsEvents:false,usePolling:true}:{}) } }, plugins: [vinext(), sites(), cloudflare({ viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] }, config: localBindingConfig })] };
 });

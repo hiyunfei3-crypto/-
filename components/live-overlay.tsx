@@ -10,6 +10,11 @@ export function LiveOverlay(){
  const [syncError,setSyncError]=useState(false);
  const inFlight=useRef(false);
  useEffect(()=>{
+  document.documentElement.classList.add('overlay-page');
+  document.body.classList.add('overlay-page');
+  return()=>{document.documentElement.classList.remove('overlay-page');document.body.classList.remove('overlay-page')};
+ },[]);
+ useEffect(()=>{
   let mounted=true;
   const refresh=async()=>{
    if(document.hidden||inFlight.current)return;
