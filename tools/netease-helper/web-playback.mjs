@@ -15,6 +15,14 @@ export function parseNeteasePlayerState(raw){
  return {songId:raw.href.match(/[?&]id=(\d+)/)?.[1]||'',title:raw.title.trim(),positionMs:parsePlayerClock(positionText),durationMs:parsePlayerClock(durationText),playingClass:/\bpas\b/.test(raw.playClass)};
 }
 
+export function parseQQPlayerState(raw){
+ const clocks=String(raw.time||'').match(/\d{1,2}:\d{2}(?::\d{2})?/g)||[];
+ const positionMs=parsePlayerClock(clocks[0]);
+ const durationMs=parsePlayerClock(clocks[1]);
+ const control=`${raw.playClass||''} ${raw.playTitle||''} ${raw.playLabel||''}`;
+ return {title:String(raw.title||'').trim(),positionMs,durationMs,playing:/暂停|pause|playing|btn_big_play--pause/i.test(control)};
+}
+
 export function neteaseProgressWrapped(lastPositionMs,state){
  return Number.isFinite(lastPositionMs)&&state.durationMs>0&&lastPositionMs>=state.durationMs-10000&&state.positionMs<lastPositionMs-5000&&state.positionMs<=Math.min(60000,state.durationMs/4);
 }
@@ -34,6 +42,32 @@ async function neteasePlayerState(page){
   return {href:song?.getAttribute('href')||'',title:song?.getAttribute('title')||song?.textContent||'',time,playClass:play?.className||''};
  });
  return parseNeteasePlayerState(raw);
+}
+
+async function qqPlayerState(page){
+ const raw=await page.evaluate(()=>{
+  const visible=element=>!!element&&getComputedStyle(element).display!=='none'&&getComputedStyle(element).visibility!=='hidden';
+  const roots=[...document.querySelectorAll('[class*="player"],[class*="playbar"]')].filter(visible);
+  const pick=selectors=>selectors.flatMap(selector=>[...document.querySelectorAll(selector)]).find(visible)||null;
+  const title=pick(['.song_info__name','.player__songname','.player_music__name','[class*="player"] [class*="song_name"]','[class*="player"] [class*="songname"]']);
+  const timeItems=[...new Set(['.player__time','.player_music__time','[class*="player"] [class*="time"]','[class*="playbar"] [class*="time"]'].flatMap(selector=>[...document.querySelectorAll(selector)]).filter(visible))];
+  const play=pick(['.btn_big_play','.player__btn_play','[class*="player"] [class*="play_btn"]','[class*="player"] [class*="btn_play"]']);
+  return {title:title?.getAttribute('title')||title?.textContent||'',time:timeItems.map(item=>item.textContent||'').join(' / ')||roots.map(root=>root.textContent||'').find(text=>/\d{1,2}:\d{2}/.test(text))||'',playClass:play?.className||'',playTitle:play?.getAttribute('title')||'',playLabel:play?.getAttribute('aria-label')||''};
+ });
+ return parseQQPlayerState(raw);
+}
+
+async function confirmedQQUI(page,title){
+ let first=null;
+ for(let i=0;i<24;i++){
+  const state=await qqPlayerState(page).catch(()=>null);
+  if(state?.positionMs!==null&&(normalize(state.title)===normalize(title)||!state.title)){
+   if(!first)first=state;
+   else if(state.positionMs!==first.positionMs)return state;
+  }
+  await wait(500);
+ }
+ return null;
 }
 
 async function confirmedNeteaseUI(page,songId){
@@ -93,10 +127,10 @@ async function watchEnd(media){
 }
 
 export class WebPlayback{
- constructor(browser){this.browser=browser;this.current=null;this.neteaseMonitor=null;this.neteaseMonitorBusy=false;this.lastNeteaseState=null;this.lastNeteaseError=null}
+ constructor(browser){this.browser=browser;this.current=null;this.playerMonitor=null;this.playerMonitorBusy=false;this.lastNeteaseState=null;this.lastQQState=null;this.lastPlayerError=null}
  diagnostics(){
   const current=this.current;
-  return {current:current?{source:current.source,kind:current.kind||'media',songId:current.songId||null,positionMs:current.lastPositionMs??null,durationMs:current.durationMs??null,ended:!!current.ended,interrupted:!!current.interrupted}:null,netease:this.lastNeteaseState,error:this.lastNeteaseError};
+  return {current:current?{source:current.source,kind:current.kind||'media',songId:current.songId||null,title:current.title||null,positionMs:current.lastPositionMs??null,durationMs:current.durationMs??null,ended:!!current.ended,interrupted:!!current.interrupted}:null,netease:this.lastNeteaseState,qq:this.lastQQState,error:this.lastPlayerError};
  }
  async qqDiagnostics(){
   const page=await this.browser.page('qqmusic',{reopen:false});
@@ -109,19 +143,27 @@ export class WebPlayback{
    }).slice(-35).map(item=>({tag:item.tagName,class:item.className,text:(item.textContent||'').trim().slice(0,120),title:item.getAttribute('title')})),
   }));
  }
- startNeteaseMonitor(){
-  if(this.neteaseMonitor)clearInterval(this.neteaseMonitor);
-  this.neteaseMonitor=setInterval(()=>void this.sampleNeteaseUI(),500);
+ startPlayerMonitor(){
+  if(this.playerMonitor)clearInterval(this.playerMonitor);
+  this.playerMonitor=setInterval(()=>void this.samplePlayerUI(),500);
  }
- async sampleNeteaseUI(){
+ async samplePlayerUI(){
   const current=this.current;
-  if(this.neteaseMonitorBusy||current?.kind!=='ui'||current.ended||current.interrupted)return;
-  this.neteaseMonitorBusy=true;
+  if(this.playerMonitorBusy||current?.kind!=='ui'||current.ended||current.interrupted)return;
+  this.playerMonitorBusy=true;
   try{
-   const state=await neteasePlayerState(current.page);
-   this.lastNeteaseState=state;
-   this.lastNeteaseError=null;
+   const state=current.source==='qqmusic'?await qqPlayerState(current.page):await neteasePlayerState(current.page);
+   if(current.source==='qqmusic')this.lastQQState=state;else this.lastNeteaseState=state;
+   this.lastPlayerError=null;
    if(this.current!==current)return;
+   if(current.source==='qqmusic'){
+    const changed=state.title&&normalize(state.title)!==normalize(current.title);
+    const wrapped=current.durationMs&&current.lastPositionMs>=current.durationMs-10000&&state.positionMs<current.lastPositionMs-5000;
+    const completed=!!wrapped||!!(changed&&current.durationMs&&current.lastPositionMs>=current.durationMs-10000);
+    if(changed||wrapped){await this.stopAll();this.current={...current,ended:completed,interrupted:!completed};return}
+    if(state.positionMs!==null){if(state.positionMs!==current.lastPositionMs)current.lastProgressAt=Date.now();current.lastPositionMs=state.positionMs;if(state.durationMs)current.durationMs=state.durationMs}
+    return;
+   }
    const completed=neteaseTrackCompleted(current,state);
    if((state.songId&&state.songId!==current.songId)||completed){
     await this.stopAll();
@@ -134,11 +176,11 @@ export class WebPlayback{
     current.durationMs=state.durationMs;
    }
   }catch(error){
-   this.lastNeteaseError=String(error?.message||error);
-  }finally{this.neteaseMonitorBusy=false}
+   this.lastPlayerError=String(error?.message||error);
+  }finally{this.playerMonitorBusy=false}
  }
  async stopAll(){
-  if(this.neteaseMonitor){clearInterval(this.neteaseMonitor);this.neteaseMonitor=null}
+  if(this.playerMonitor){clearInterval(this.playerMonitor);this.playerMonitor=null}
   const neteasePage=await this.browser.page('netease',{reopen:false});
   const neteaseState=neteasePage?await neteasePlayerState(neteasePage).catch(()=>null):null;
   let advancing=false;
@@ -150,6 +192,14 @@ export class WebPlayback{
   if(!this.current?.ended&&neteaseState?.durationMs>0&&(neteaseState.playingClass||advancing)){
    const clicked=await neteasePage.evaluate(()=>{const button=document.querySelector('.m-playbar a[data-action="play"]');button?.click();return !!button});
    if(!clicked)throw Error('网易云播放条不可用，无法安全切歌');
+  }
+  if(this.current?.source==='qqmusic'&&this.current.kind==='ui'&&!this.current.ended){
+   const qqPage=await this.browser.page('qqmusic',{reopen:false});
+   const qqState=qqPage?await qqPlayerState(qqPage).catch(()=>null):null;
+   if(qqState?.playing)await qqPage.evaluate(()=>{
+    const selectors=['.btn_big_play','.player__btn_play','[class*="player"] [class*="play_btn"]','[class*="player"] [class*="btn_play"]'];
+    const button=selectors.flatMap(selector=>[...document.querySelectorAll(selector)]).find(item=>getComputedStyle(item).display!=='none');button?.click();
+   }).catch(()=>{});
   }
   for(const source of ['netease','qqmusic']){
    const origin=source==='netease'?'https://music.163.com':'https://y.qq.com';
@@ -176,6 +226,7 @@ export class WebPlayback{
    index,title:item.querySelector('.songlist__songname_txt a[title]')?.getAttribute('title')||'',
    artists:[...item.querySelectorAll('.songlist__artist a[title]')].map(a=>a.getAttribute('title')).filter(Boolean),
    href:item.querySelector('.songlist__songname_txt a[href*="songDetail"]')?.getAttribute('href')||'',
+   durationText:item.querySelector('.songlist__time')?.textContent?.trim()||'',
   })));
   const selected=selectExactSong(rows,title,artist,cover);
   if(!selected)throw new PlaybackAttemptError(`QQ 音乐未找到${artist&&!cover?'指定歌手的':'同名'}可识别版本「${title}」`,'unavailable');
@@ -183,14 +234,16 @@ export class WebPlayback{
   try{await page.locator('.songlist__item').nth(selected.index).locator('.list_menu__play').evaluate(button=>button.click())}
   catch{throw new PlaybackAttemptError('QQ 音乐网页播放按钮不可用','unknown')}
   const media=await confirmedMedia(this.browser,'qqmusic',before);
-  if(!media){
+  const ui=media?null:await confirmedQQUI(page,selected.title);
+  if(!media&&!ui){
    const text=await page.locator('body').innerText().catch(()=>'');
    if(/暂无版权|应版权方要求|此歌曲暂时无法播放/.test(text))throw new PlaybackAttemptError('QQ 音乐提示版权限制','unavailable');
    throw new PlaybackAttemptError('QQ 音乐已收到播放指令，但未确认目标音频开始播放','unknown');
   }
-  await watchEnd(media);
-  this.current={source:'qqmusic',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000};
-  return {ok:true,player:'qqmusic',matchedTitle:selected.title,artist:selected.artists.join(' / '),durationMs:media.duration*1000,ambiguous:selected.ambiguous,verification:'html-media-progress'};
+  if(media)await watchEnd(media);
+  this.current=media?{source:'qqmusic',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'qqmusic',kind:'ui',title:selected.title,page,durationMs:ui.durationMs||parsePlayerClock(selected.durationText),lastPositionMs:ui.positionMs,lastProgressAt:Date.now()};
+  if(ui)this.startPlayerMonitor();
+  return {ok:true,player:'qqmusic',matchedTitle:selected.title,artist:selected.artists.join(' / '),durationMs:this.current.durationMs,ambiguous:selected.ambiguous,verification:media?'html-media-progress':'player-bar-progress'};
  }
  async netease(title,artist='',cover=false){
   let song;
@@ -217,7 +270,7 @@ export class WebPlayback{
   }
   if(media)await watchEnd(media);
   this.current=media?{source:'netease',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'netease',kind:'ui',songId:String(song.id),page,durationMs:ui.durationMs,lastPositionMs:ui.positionMs,lastProgressAt:Date.now()};
-  if(ui)this.startNeteaseMonitor();
+  if(ui)this.startPlayerMonitor();
   return {ok:true,player:'netease',matchedTitle:song.name,artist:(song.artists||[]).map(item=>item.name).join(' / '),durationMs:this.current.durationMs,ambiguous:!!song.ambiguous,verification:media?'html-media-progress':'player-bar-progress'};
  }
  async status(){
@@ -225,11 +278,11 @@ export class WebPlayback{
   if(this.current.kind==='ui'){
    if(this.current.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
    if(this.current.interrupted)return {ended:false,playing:false,estimated:false,remainingMs:null};
-   await this.sampleNeteaseUI();
+   await this.samplePlayerUI();
    if(this.current?.ended)return {ended:true,playing:false,estimated:false,remainingMs:0};
-   const state=await neteasePlayerState(this.current.page);
-   if(state.songId!==this.current.songId||state.positionMs===null||!state.durationMs)return {ended:false,playing:false,estimated:false,remainingMs:null};
-   return {ended:false,playing:state.playingClass||Date.now()-this.current.lastProgressAt<3000,estimated:false,remainingMs:Math.max(0,state.durationMs-state.positionMs)};
+   const state=this.current.source==='qqmusic'?await qqPlayerState(this.current.page):await neteasePlayerState(this.current.page);
+   if((this.current.source==='netease'&&state.songId!==this.current.songId)||state.positionMs===null)return {ended:false,playing:false,estimated:false,remainingMs:null};
+   return {ended:false,playing:state.playing||state.playingClass||Date.now()-this.current.lastProgressAt<3000,estimated:false,remainingMs:state.durationMs===null?null:Math.max(0,state.durationMs-state.positionMs)};
   }
   const {frame,src,durationMs,startedAt}=this.current;
   let ended=false,playing=false;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WebPlayback,neteaseProgressWrapped,neteaseTrackCompleted,parseNeteasePlayerState,parsePlayerClock,selectExactSong} from './web-playback.mjs';
+import {WebPlayback,neteaseProgressWrapped,neteaseTrackCompleted,parseNeteasePlayerState,parsePlayerClock,parseQQPlayerState,selectExactSong} from './web-playback.mjs';
 
 const rows=[
  {title:'茶汤 (Live)',artists:['郁可唯'],index:0},
@@ -28,6 +28,30 @@ test('网易云播放条关联歌曲编号和实际进度',()=>{
  });
 });
 
+test('QQ 音乐播放条能识别歌名、时间和播放状态',()=>{
+ assert.deepEqual(parseQQPlayerState({title:'晴天',time:'00:13 / 04:29',playClass:'btn_big_play btn_big_play--pause'}),{
+  title:'晴天',positionMs:13000,durationMs:269000,playing:true,
+ });
+});
+
+test('QQ 音乐播到结尾后自动换歌会被识别为已完成',async()=>{
+ const playback=new WebPlayback({});
+ playback.stopAll=async()=>{playback.current=null};
+ playback.current={source:'qqmusic',kind:'ui',title:'晴天',durationMs:269000,lastPositionMs:267000,page:{evaluate:async()=>({title:'下一首',time:'00:01 / 03:10',playClass:'btn_big_play--pause'})}};
+ await playback.samplePlayerUI();
+ assert.equal(playback.current.ended,true);
+ assert.equal(playback.current.interrupted,false);
+});
+
+test('QQ 音乐过早被切歌会暂停自动续播',async()=>{
+ const playback=new WebPlayback({});
+ playback.stopAll=async()=>{playback.current=null};
+ playback.current={source:'qqmusic',kind:'ui',title:'晴天',durationMs:269000,lastPositionMs:120000,page:{evaluate:async()=>({title:'下一首',time:'00:01 / 03:10',playClass:'btn_big_play--pause'})}};
+ await playback.samplePlayerUI();
+ assert.equal(playback.current.ended,false);
+ assert.equal(playback.current.interrupted,true);
+});
+
 test('只有临近结尾后跳回开头才算自然播完',()=>{
  assert.equal(neteaseProgressWrapped(257000,{positionMs:56000,durationMs:260000}),true);
  assert.equal(neteaseProgressWrapped(172000,{positionMs:56000,durationMs:260000}),false);
@@ -46,7 +70,7 @@ test('本机监测到网易云自动接歌后停止网页并记住播完状态',
  let stopped=false;
  playback.stopAll=async()=>{stopped=true;playback.current=null};
  playback.current={kind:'ui',songId:'1',durationMs:51000,lastPositionMs:48000,page:{evaluate:async()=>({href:'/song?id=2',title:'下一首',time:'00:01 / 03:00',playClass:'pas'})}};
- await playback.sampleNeteaseUI();
+ await playback.samplePlayerUI();
  assert.equal(stopped,true);
  assert.equal(playback.current.ended,true);
 });
@@ -55,7 +79,7 @@ test('过早切到其他歌曲会停播，但不会谎报原曲已播完',async(
  const playback=new WebPlayback({});
  playback.stopAll=async()=>{playback.current=null};
  playback.current={kind:'ui',songId:'1',durationMs:51000,lastPositionMs:15000,page:{evaluate:async()=>({href:'/song?id=2',title:'下一首',time:'00:01 / 03:00',playClass:'pas'})}};
- await playback.sampleNeteaseUI();
+ await playback.samplePlayerUI();
  assert.equal(playback.current.ended,false);
  assert.equal(playback.current.interrupted,true);
 });
