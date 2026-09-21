@@ -223,6 +223,7 @@ body.overlay-page{color:#f4f9f3;min-height:0;overflow:hidden}
 @media(max-width:850px){.host-overlay-links{grid-template-columns:44px minmax(0,1fr)}.host-overlay-actions{grid-column:2;justify-content:flex-start}.overlay-theme-picker{grid-template-columns:repeat(2,minmax(110px,1fr))}}
 @media(max-width:480px){.host-overlay-links{grid-template-columns:1fr;padding:18px}.host-overlay-icon{display:none}.host-overlay-actions{grid-column:1}.live-overlay{padding:8px}.live-overlay-card{border-radius:17px}}
 .host-auto-review{margin-top:-7px;color:#f0f5ec}.host-auto-review small{color:#a9b8a9}
+.host-auto-paused{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 18px 14px;padding:10px 13px;border:1px solid #e9c47755;border-radius:10px;background:#e9c47710;color:#f0d99e;font-size:12px}.host-auto-paused button{padding:7px 11px;border:1px solid #e9c47766;border-radius:7px;background:#e9c47718;color:#ffe8af;font-size:12px;white-space:nowrap}
 .free-request{grid-template-columns:minmax(150px,.9fr) minmax(150px,1fr) minmax(150px,.9fr) auto}
 .song-add{grid-template-columns:minmax(120px,.8fr) minmax(120px,.8fr) minmax(130px,.9fr) minmax(180px,1.15fr) auto auto}
 .song-admin-list article{grid-template-columns:65px minmax(150px,1fr) minmax(135px,auto) 65px 60px}
