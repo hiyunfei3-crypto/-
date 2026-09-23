@@ -6,9 +6,14 @@ if(!code||!title){
  process.exit(2);
 }
 try{
+ const pair=await fetch('http://127.0.0.1:43871/pair',{
+  method:'POST',headers:{Origin:'http://localhost:5181','X-Host-Code':code},signal:AbortSignal.timeout(5000),
+ });
+ const paired=await pair.json();
+ if(!pair.ok||!paired.deviceToken)throw Error(paired.error||'配对失败');
  const response=await fetch('http://127.0.0.1:43871/play',{
   method:'POST',
-  headers:{Origin:'http://localhost:5180','Content-Type':'application/json','X-Host-Code':code},
+  headers:{Origin:'http://localhost:5181','Content-Type':'application/json','X-Device-Token':paired.deviceToken},
   body:JSON.stringify({requestId:randomUUID(),title,artist}),
   signal:AbortSignal.timeout(90000),
  });

@@ -7,10 +7,12 @@ import {MusicBrowser} from './web-browser.mjs';
 import {WebPlayback} from './web-playback.mjs';
 import {LyricBridge} from './lyric-bridge.mjs';
 import {startPlayerCap} from './playercap-process.mjs';
+import {PairingStore} from './pairing-store.mjs';
 
 const port=43871;
-const helperVersion='2026.09.23.2';
+const helperVersion='2026.09.23.3';
 const code=randomBytes(6).toString('hex');
+const pairing=new PairingStore();
 const overlayTokenFile=join(import.meta.dirname,'.overlay-read-token');
 function loadOverlayToken(){
  try{
@@ -43,16 +45,29 @@ const server=http.createServer(async(req,res)=>{
  const origin=req.headers.origin||'';
  if(!allowedOrigins.has(origin)){reply(res,403,{error:'来源不受信任'});return}
  if(req.method==='OPTIONS'){
-  res.writeHead(204,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, X-Host-Code, X-Overlay-Token','Access-Control-Allow-Private-Network':'true','Vary':'Origin'});res.end();return;
+  res.writeHead(204,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, X-Host-Code, X-Device-Token, X-Overlay-Token','Access-Control-Allow-Private-Network':'true','Vary':'Origin'});res.end();return;
  }
- if(req.method!=='POST'||!['/play','/pause','/resume','/pair','/status','/diagnostics','/lyrics'].includes(req.url||'')){reply(res,404,{error:'未找到操作'},origin);return}
+ if(req.method!=='POST'||!['/discover','/reconnect','/unpair','/play','/pause','/resume','/pair','/status','/diagnostics','/lyrics'].includes(req.url||'')){reply(res,404,{error:'未找到操作'},origin);return}
+ if(req.url==='/discover'){reply(res,200,{ok:true,version:helperVersion,pairingSupported:true},origin);return}
  if(req.url==='/lyrics'){
   if(req.headers['x-overlay-token']!==overlayToken){reply(res,401,{error:'直播歌词令牌无效'},origin);return}
   try{reply(res,200,{ok:true,...await lyrics.snapshot()},origin)}catch(error){reply(res,503,{error:error.message||'歌词暂不可用'},origin)}
   return;
  }
- if(req.headers['x-host-code']!==code){reply(res,401,{error:'配对码错误'},origin);return}
- if(req.url==='/pair'){reply(res,200,{ok:true,message:'本机播放助手已连接',overlayToken},origin);return}
+ if(req.url==='/pair'){
+  if(req.headers['x-host-code']!==code){reply(res,401,{error:'配对码错误'},origin);return}
+  try{const deviceToken=pairing.issue(origin);reply(res,200,{ok:true,message:'本机播放助手已连接',deviceToken,overlayToken,version:helperVersion},origin)}
+  catch{reply(res,500,{error:'无法在本机保存配对，请检查用户目录权限'},origin)}
+  return;
+ }
+ const deviceToken=req.headers['x-device-token'];
+ if(!pairing.valid(origin,deviceToken)){reply(res,401,{error:'设备凭证无效，请重新输入配对码'},origin);return}
+ if(req.url==='/reconnect'){reply(res,200,{ok:true,version:helperVersion,overlayToken},origin);return}
+ if(req.url==='/unpair'){
+  try{pairing.revoke(origin,deviceToken);reply(res,200,{ok:true},origin)}
+  catch{reply(res,500,{error:'无法取消配对，请检查用户目录权限'},origin)}
+  return;
+ }
  if(req.url==='/diagnostics'){reply(res,200,{ok:true,...playback.diagnostics(),lyrics:await lyrics.snapshot().catch(()=>null),neteaseControls:await playback.neteaseDiagnostics().catch(()=>null),qqPage:await playback.qqDiagnostics().catch(()=>null),tabs:await musicBrowser.state()},origin);return}
  if(req.url==='/status'){
   try{reply(res,200,{ok:true,requestId:activePlayback?.requestId||null,...await playback.status()},origin)}

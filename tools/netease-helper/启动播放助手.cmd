@@ -3,9 +3,9 @@ chcp 65001 >nul
 set DEBUG=
 set DEBUG_FILE=
 cd /d "%~dp0"
-title Songlist Music Helper 2026.09.23.2
+title Songlist Music Helper 2026.09.23.3
 echo ========================================
-echo   Songlist Music Helper 2026.09.23.2
+echo   Songlist Music Helper 2026.09.23.3
 echo ========================================
 echo.
 if exist "%~dp0runtime\node.exe" goto bundled_node

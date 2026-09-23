@@ -6,9 +6,9 @@
 node tools/netease-helper/server.mjs
 ```
 
-交给其他主播使用时，运行 `powershell -ExecutionPolicy Bypass -File scripts/build-host-helper.ps1` 生成 `outputs/主播播放助手.zip`。便携包自带 Node.js 运行环境，主播解压后直接双击启动脚本即可；仍需安装 Google Chrome。生成包不会包含音乐网站登录资料、配对码或运行日志。
+交给其他主播使用时，运行 `pwsh -NoProfile -File scripts/build-host-helper.ps1` 生成带版本号的 `outputs/主播播放助手-最新版-*.zip`。便携包自带 Node.js 运行环境，主播解压后直接双击启动脚本即可；Windows 自带 Edge 即可。生成包不会包含音乐网站登录资料、设备凭证、配对码或运行日志。
 
-助手会优先使用 Windows 当前默认的 Microsoft Edge 或 Google Chrome；默认浏览器不支持自动控制时使用系统自带 Edge。它会打开独立的音乐浏览器窗口，分别进入网易云音乐与 QQ 音乐。请在**助手打开的窗口**手动登录两个账号；普通浏览器或 Codex 内的网页标签不会共享登录。保持音乐浏览器和显示配对码的助手终端运行。结束时在助手终端按 `Ctrl+C`，让浏览器正常关闭并保存会话。登录资料仅保存在 `tools/netease-helper/.music-browser-profile/`，此目录已加入 `.gitignore`。助手只监听本机 `127.0.0.1:43871`，把终端显示的配对码填入主播控制台，点击“连接助手”。
+助手会优先使用 Windows 当前默认的 Microsoft Edge 或 Google Chrome；默认浏览器不支持自动控制时使用系统自带 Edge。它会打开独立的音乐浏览器窗口，分别进入网易云音乐与 QQ 音乐。请在**助手打开的窗口**手动登录两个账号；普通浏览器或 Codex 内的网页标签不会共享登录。保持音乐浏览器和显示配对码的助手终端运行。结束时在助手终端按 `Ctrl+C`，让浏览器正常关闭并保存会话。登录资料保存在 `tools/netease-helper/.music-browser-profile/`；首次配对生成的设备凭证保存在当前 Windows 用户的 `%LOCALAPPDATA%\SonglistMusicHelper\paired-devices.json`，同一浏览器后续自动重连。助手只监听本机 `127.0.0.1:43871`。本地预览与在线网站各需配对一次。
 
 连接后，主播后台会生成“点歌队列”“纯歌词”和“歌词＋队列”三个直播地址。歌词只在主播电脑本地读取，不上传到云端。若要使用 PlayerCap，将官方 `Metabox-Nexus-PlayerCap.exe` 和 `LICENSE` 放入 `tools/netease-helper/playercap/`；助手会限制其监听 `127.0.0.1:8765` 并随助手启停。没有 PlayerCap 时会自动尝试从助手控制的音乐网页读取歌词，失败只会隐藏歌词，不影响点歌和播放。
 
