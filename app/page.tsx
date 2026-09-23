@@ -17,6 +17,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { songs, replaceSongs, categories, cleanFavorites, findSongs, matchesCategory, isSC, PAGE_SIZE, type Song, type Category } from '@/lib/songs';
 
 const storageKey = 'on-repeat-song-favorites-v1';
+const hostModeKey = 'songlist-host-mode-v1';
 export default function Home() {
  const [hostMode,setHostMode]=useState(false);
  const [copiedId,setCopiedId]=useState<number|null>(null);
@@ -66,6 +67,9 @@ export default function Home() {
  const [announcement, setAnnouncement] = useState('');
  const [notice, setNotice] = useState<{ text: string } | null>(null);
  const notify = (text: string) => setNotice({ text });
+ useEffect(()=>{try{if(localStorage.getItem(hostModeKey)==='1')setHostMode(true)}catch{}},[]);
+ const openHost=()=>{try{localStorage.setItem(hostModeKey,'1')}catch{}setHostMode(true)};
+ const closeHost=()=>{try{localStorage.removeItem(hostModeKey)}catch{}setHostMode(false)};
  useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(null), 3000); return () => clearTimeout(timer); }, [notice]);
  useEffect(()=>{if(copiedId===null)return;const timer=setTimeout(()=>setCopiedId(null),2200);return()=>clearTimeout(timer)},[copiedId]);
  async function directRequest(song:Song,kind:RequestKind){
@@ -118,7 +122,7 @@ export default function Home() {
   document.getElementById('collection-heading')?.focus({ preventScroll: true });
   document.getElementById('collection')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
  }
- if(hostMode)return <HostConsole onClose={()=>setHostMode(false)}/>;
+ if(hostMode)return <HostConsole onClose={closeHost}/>;
  const catalog = <>
   <div className="section-line" id="collection"><h2 id="collection-heading" tabIndex={-1}>{view === 'favorites' ? '我的收藏' : '全部曲目'}<span>{visible.length} 首</span></h2><p>{query ? '搜索结果 · 保留原始编号' : '按原始编号排列'}</p></div>
   <div className="filters" aria-label="按歌名字数或 SC 标记筛选">{categories.map(c => {
@@ -145,7 +149,7 @@ export default function Home() {
   <a href="#collection" className="skip-link">跳到歌曲列表</a>
   <header className="topbar"><a href="./" className="brand" aria-label="点歌单首页"><span className="brand-symbol"><AudioLines size={25} /></span><strong>点歌单<span>SONG REQUESTS</span></strong></a><div id="profile-slot" /><TabsList variant="line" className="main-nav"><TabsTrigger value="discover">全部歌曲</TabsTrigger><TabsTrigger value="queue">待播单</TabsTrigger><TabsTrigger value="ranking">点歌榜</TabsTrigger><TabsTrigger value="wishes">许愿学歌</TabsTrigger><TabsTrigger value="favorites">我的收藏<span className="nav-count">{favorites.length}</span></TabsTrigger></TabsList></header>
   <div className={"search-dock"+(view==='ranking'||view==='wishes'||view==='queue'?' search-dock-hidden':'')}> <div className="search-box"><Search size={20} /><Input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="搜索歌名或原编号，如 543" aria-label="搜索歌名或原编号" />{query && <button onClick={() => { setQuery(''); setPage(1); }} aria-label="清除搜索"><X size={17} /></button>}</div></div>
-  <CommunityPanel data={shared} id={profileId} enter={enter} leave={leave} act={act} view={view} error={sharedError} busy={sharedBusy} openHost={()=>setHostMode(true)}/>
+  <CommunityPanel data={shared} id={profileId} enter={enter} leave={leave} act={act} view={view} error={sharedError} busy={sharedBusy} openHost={openHost}/>
   {view==='queue'&&<AudienceQueue user={profileId}/>} 
   <main id="main"><div className="page-heading"><div><p className="eyebrow">SONG REQUESTS / {songs.length} TRACKS</p><h1>点歌单</h1></div></div>
   {catalogError&&<p className="catalog-sync-warning" role="status">{catalogError}</p>}

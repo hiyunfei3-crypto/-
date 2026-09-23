@@ -1,35 +1,20 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {Copy,ExternalLink,MonitorPlay} from 'lucide-react';
+import {hostLyrics,type LyricSnapshot} from '@/lib/host-helper';
 
-const themes=[
- {id:'liquid',name:'液态玻璃',hint:'通透悬浮'},
- {id:'ancient',name:'古风卷轴',hint:'雅致国风'},
- {id:'modern',name:'现代信息板',hint:'利落科技'},
- {id:'minimal',name:'极简字幕',hint:'画面最轻'},
-] as const;
-const colors=[
- {id:'lime',name:'青柠',hex:'#d1fc72'},
- {id:'blue',name:'月蓝',hex:'#62dcff'},
- {id:'violet',name:'紫晶',hex:'#c093ff'},
- {id:'red',name:'朱砂',hex:'#ff806f'},
- {id:'gold',name:'鎏金',hex:'#e9c477'},
-] as const;
+const themes=[{id:'liquid',name:'液态玻璃',hint:'通透悬浮'},{id:'ancient',name:'古风卷轴',hint:'雅致国风'},{id:'modern',name:'现代信息板',hint:'利落科技'},{id:'minimal',name:'极简字幕',hint:'轻量信息'},{id:'text',name:'纯透明文字',hint:'只显示文字'}] as const;
+const colors=[{id:'lime',name:'青柠',hex:'#d1fc72'},{id:'blue',name:'月蓝',hex:'#62dcff'},{id:'violet',name:'紫晶',hex:'#c093ff'},{id:'red',name:'朱砂',hex:'#ff806f'},{id:'gold',name:'鎏金',hex:'#e9c477'}] as const;
+type LinkKind='queue'|'lyrics'|'fusion';
 
-export function HostOverlayLinks({onMessage}:{onMessage:(message:string)=>void}){
- const [url,setUrl]=useState('');
- const [theme,setTheme]=useState<(typeof themes)[number]['id']>('liquid');
- const [color,setColor]=useState<(typeof colors)[number]['id']>('lime');
- useEffect(()=>{const saved=localStorage.getItem('songlist-overlay-theme');const savedColor=localStorage.getItem('songlist-overlay-color');if(themes.some(item=>item.id===saved))setTheme(saved as typeof theme);if(colors.some(item=>item.id===savedColor))setColor(savedColor as typeof color)},[]);
- useEffect(()=>{const next=new URL('overlay/',window.location.href);next.searchParams.set('theme',theme);next.searchParams.set('color',color);setUrl(next.href);localStorage.setItem('songlist-overlay-theme',theme);localStorage.setItem('songlist-overlay-color',color)},[theme,color]);
- async function copy(){
-  if(!url)return;
-  try{await navigator.clipboard.writeText(url);onMessage('直播画面 URL 已复制')}
-  catch{onMessage('复制失败，请从下方地址栏手动复制直播 URL')}
- }
- return <section className="host-overlay-links" aria-labelledby="host-overlay-title">
-  <div className="host-overlay-icon"><MonitorPlay size={24}/></div>
-  <div className="host-overlay-content"><p className="eyebrow">LIVE OVERLAY</p><h2 id="host-overlay-title">直播画面</h2><p>先选版式，再搭配颜色；复制后可添加到直播软件的浏览器来源。推荐尺寸 420 × 600。</p><span className="overlay-picker-label">版式</span><div className="overlay-theme-picker" aria-label="直播画面版式">{themes.map(item=><button key={item.id} type="button" className={`overlay-theme-option overlay-theme-option-${item.id}`} aria-pressed={theme===item.id} onClick={()=>setTheme(item.id)}><i/><span><b>{item.name}</b><small>{item.hint}</small></span></button>)}</div><span className="overlay-picker-label">颜色</span><div className="overlay-color-picker" aria-label="直播画面颜色">{colors.map(item=><button key={item.id} type="button" aria-label={item.name} title={item.name} aria-pressed={color===item.id} onClick={()=>setColor(item.id)}><i style={{background:item.hex}}/><span>{item.name}</span></button>)}</div><input aria-label="直播画面 URL" readOnly value={url} onFocus={event=>event.currentTarget.select()}/></div>
-  <div className="host-overlay-actions"><button type="button" disabled={!url} onClick={()=>void copy()}><Copy size={16}/>复制直播 URL</button><a href={url||undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!url}><ExternalLink size={16}/>预览直播画面</a></div>
- </section>;
+export function HostOverlayLinks({onMessage,overlayToken}:{onMessage:(message:string)=>void;overlayToken:string}){
+ const [theme,setTheme]=useState<(typeof themes)[number]['id']>('liquid'),[color,setColor]=useState<(typeof colors)[number]['id']>('lime');
+ const [offset,setOffset]=useState(200),[lyric,setLyric]=useState<LyricSnapshot|null>(null),[lyricError,setLyricError]=useState('');
+ useEffect(()=>{const t=localStorage.getItem('songlist-overlay-theme'),c=localStorage.getItem('songlist-overlay-color'),o=Number(localStorage.getItem('songlist-lyric-offset'));if(themes.some(x=>x.id===t))setTheme(t as typeof theme);if(colors.some(x=>x.id===c))setColor(c as typeof color);if(Number.isFinite(o)&&o>=-3000&&o<=3000)setOffset(o)},[]);
+ useEffect(()=>{localStorage.setItem('songlist-overlay-theme',theme);localStorage.setItem('songlist-overlay-color',color);localStorage.setItem('songlist-lyric-offset',String(offset))},[theme,color,offset]);
+ useEffect(()=>{if(!overlayToken){setLyric(null);setLyricError('请先在下方连接播放助手');return}let mounted=true;const load=async()=>{try{const data=await hostLyrics(overlayToken);if(mounted){setLyric(data);setLyricError(data?.available?'':'助手已连接，等待歌曲歌词')}}catch{if(mounted){setLyric(null);setLyricError('播放助手未运行或已重启，请用新配对码重新连接')}}};void load();const timer=setInterval(()=>void load(),1500);return()=>{mounted=false;clearInterval(timer)}},[overlayToken]);
+ const urls=useMemo(()=>{if(typeof window==='undefined')return {queue:'',lyrics:'',fusion:''};const make=(path:string,mode:string)=>{const u=new URL(path,window.location.href);u.searchParams.set('theme',theme);u.searchParams.set('color',color);u.searchParams.set('mode',mode);if(mode!=='queue'){u.searchParams.set('offset',String(offset));if(overlayToken)u.hash=`token=${overlayToken}`}return u.href};return {queue:make('overlay/','queue'),lyrics:make('lyrics/','lyrics'),fusion:make('overlay/','fusion')}} ,[theme,color,offset,overlayToken]);
+ async function copy(kind:LinkKind){try{await navigator.clipboard.writeText(urls[kind]);onMessage(`${kind==='queue'?'点歌队列':kind==='lyrics'?'纯歌词':'融合模式'} URL 已复制`)}catch{onMessage('复制失败，请右键复制预览链接地址')}}
+ const items:[LinkKind,string,string][]=[['queue','点歌队列','420 × 600'],['lyrics','纯歌词','900 × 180'],['fusion','歌词＋队列','420 × 600']];
+ return <section className="host-overlay-links" aria-labelledby="host-overlay-title"><div className="host-overlay-icon"><MonitorPlay size={24}/></div><div className="host-overlay-content"><p className="eyebrow">LIVE OVERLAY</p><h2 id="host-overlay-title">直播画面</h2><p>队列、歌词和融合画面可分别添加为直播软件的浏览器来源。</p><div className={'lyric-connection '+(lyric?.available?'connected':'')}><b>{lyric?.available?'● 歌词已连接':'○ '+lyricError}</b>{lyric?.available&&<span>{lyric.player==='qqmusic'?'QQ 音乐':'网易云'} · {lyric.title||'正在播放'}</span>}</div><span className="overlay-picker-label">版式</span><div className="overlay-theme-picker">{themes.map(item=><button key={item.id} type="button" className={`overlay-theme-option overlay-theme-option-${item.id}`} aria-pressed={theme===item.id} onClick={()=>setTheme(item.id)}><i/><span><b>{item.name}</b><small>{item.hint}</small></span></button>)}</div><span className="overlay-picker-label">颜色</span><div className="overlay-color-picker">{colors.map(item=><button key={item.id} type="button" title={item.name} aria-pressed={color===item.id} onClick={()=>setColor(item.id)}><i style={{background:item.hex}}/><span>{item.name}</span></button>)}</div><label className="lyric-offset">歌词时间偏移 <input type="number" min={-3000} max={3000} step={50} value={offset} onChange={e=>setOffset(Math.max(-3000,Math.min(3000,Number(e.target.value)||0)))}/><span>毫秒</span></label><div className="overlay-link-list">{items.map(([kind,name,size])=><article key={kind}><div><b>{name}</b><small>推荐尺寸 {size}</small></div><button type="button" onClick={()=>void copy(kind)}><Copy size={15}/>复制 URL</button><a href={urls[kind]} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/>预览</a></article>)}</div></div></section>;
 }

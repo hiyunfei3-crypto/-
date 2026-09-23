@@ -11,5 +11,6 @@ export default defineConfig({
   build: { outDir: 'dist-pages', rollupOptions: { input: {
     main: fileURLToPath(new URL('./index.html', import.meta.url)),
     overlay: fileURLToPath(new URL('./overlay/index.html', import.meta.url)),
+    lyrics: fileURLToPath(new URL('./lyrics/index.html', import.meta.url)),
   } } },
 });

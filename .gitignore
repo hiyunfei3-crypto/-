@@ -39,6 +39,8 @@ next-env.d.ts
 /dist-pages/
 .music-browser-profile/
 tools/netease-helper/.music-browser-profile/
+tools/netease-helper/.helper-runtime.json
+tools/netease-helper/.overlay-read-token
 .npm-cache/
 .preview*.log
 overlay-*.png
