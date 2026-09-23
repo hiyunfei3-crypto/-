@@ -10,7 +10,7 @@ import {startPlayerCap} from './playercap-process.mjs';
 import {PairingStore} from './pairing-store.mjs';
 
 const port=43871;
-const helperVersion='2026.09.23.3';
+const helperVersion='2026.09.23.4';
 const code=randomBytes(6).toString('hex');
 const pairing=new PairingStore();
 const overlayTokenFile=join(import.meta.dirname,'.overlay-read-token');
@@ -47,7 +47,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==='OPTIONS'){
   res.writeHead(204,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, X-Host-Code, X-Device-Token, X-Overlay-Token','Access-Control-Allow-Private-Network':'true','Vary':'Origin'});res.end();return;
  }
- if(req.method!=='POST'||!['/discover','/reconnect','/unpair','/play','/pause','/resume','/pair','/status','/diagnostics','/lyrics'].includes(req.url||'')){reply(res,404,{error:'未找到操作'},origin);return}
+ if(req.method!=='POST'||!['/discover','/reconnect','/unpair','/play','/pause','/resume','/stop','/pair','/status','/diagnostics','/lyrics'].includes(req.url||'')){reply(res,404,{error:'未找到操作'},origin);return}
  if(req.url==='/discover'){reply(res,200,{ok:true,version:helperVersion,pairingSupported:true},origin);return}
  if(req.url==='/lyrics'){
   if(req.headers['x-overlay-token']!==overlayToken){reply(res,401,{error:'直播歌词令牌无效'},origin);return}
@@ -79,6 +79,14 @@ const server=http.createServer(async(req,res)=>{
   catch(error){reply(res,409,{error:error.message||'播放器控制失败'},origin)}
   return;
  }
+ if(req.url==='/stop'){
+  if(running){reply(res,409,{error:'播放器正在处理另一首歌曲，请稍后重试'},origin);return}
+  running=true;
+  try{const requestId=activePlayback?.requestId||null;await playback.stopAll();if(requestId)completed.delete(requestId);activePlayback=null;reply(res,200,{ok:true,requestId},origin)}
+  catch(error){reply(res,409,{error:error.message||'无法确认上一首已停止'},origin)}
+  finally{running=false}
+  return;
+ }
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2048){reply(res,413,{error:'请求太大'},origin);return}}
  let body;try{body=JSON.parse(raw)}catch{reply(res,400,{error:'请求格式错误'},origin);return}
  const {requestId,title,artist=''}=body;
@@ -90,7 +98,7 @@ const server=http.createServer(async(req,res)=>{
   if(state.playing&&!state.ended){reply(res,409,{error:'上一首仍在播放，请先完成或停止播放',outcome:'unknown'},origin);return}
  }
  running=true;
- try{await playback.stopAll();activePlayback=null;const result=await playAcrossPlayers(title.trim(),artist.trim(),{netease:playback.netease.bind(playback),qq:playback.qq.bind(playback)});activePlayback={requestId,player:result.player,startedAt:Date.now(),durationMs:result.durationMs};completed.set(requestId,result);if(completed.size>200)completed.delete(completed.keys().next().value);reply(res,200,result,origin)}
+ try{await playback.stopAll();if(activePlayback)completed.delete(activePlayback.requestId);activePlayback=null;const result=await playAcrossPlayers(title.trim(),artist.trim(),{netease:playback.netease.bind(playback),qq:playback.qq.bind(playback)});activePlayback={requestId,player:result.player,startedAt:Date.now(),durationMs:result.durationMs};completed.set(requestId,result);if(completed.size>200)completed.delete(completed.keys().next().value);reply(res,200,result,origin)}
  catch(err){reply(res,422,{error:err.message||'播放失败',outcome:err.outcome||'unknown'},origin)}finally{running=false}
 });
 server.on('error',async error=>{

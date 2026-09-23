@@ -8,9 +8,8 @@ const rows=[
  {title:'茶汤',artists:['郁可唯'],index:2},
 ];
 
-test('网页结果按完整歌名和指定歌手选择，翻唱最后尝试',()=>{
+test('网页结果按完整歌名和指定歌手选择',()=>{
  assert.equal(selectExactSong(rows,'茶汤','郁可唯').index,2);
- assert.equal(selectExactSong(rows,'茶汤','郁可唯',true).index,1);
  assert.equal(selectExactSong(rows,'茶汤','不存在'),null);
  assert.equal(selectExactSong(rows,'茶汤').index,1);
  assert.equal(selectExactSong(rows,'茶汤').ambiguous,true);
@@ -30,7 +29,7 @@ test('网易云播放条关联歌曲编号和实际进度',()=>{
 
 test('QQ 音乐播放条能识别歌名、时间和播放状态',()=>{
  assert.deepEqual(parseQQPlayerState({title:'晴天',time:'00:13 / 04:29',playClass:'btn_big_play btn_big_play--pause'}),{
-  title:'晴天',positionMs:13000,durationMs:269000,playing:true,
+  title:'晴天',artist:'',positionMs:13000,durationMs:269000,playing:true,
  });
 });
 

@@ -77,6 +77,15 @@ export async function hostPlaybackStatus(deviceToken:string){
  return data;
 }
 
+export async function stopHostPlayback(deviceToken:string){
+ if(!deviceToken.trim())throw Error('请先连接本机播放助手');
+ const response=await fetch(endpoint+'/stop',{method:'POST',headers:{'X-Device-Token':deviceToken.trim()},signal:AbortSignal.timeout(10000)});
+ if(response.status===404)throw Error('播放助手版本过旧，请更新到 2026.09.23.4 后再切歌');
+ const data=await response.json().catch(()=>({error:'播放器停止操作返回内容无效'})) as {ok?:boolean;error?:string;requestId?:string|null};
+ if(!response.ok||!data.ok)throw Error(data.error||'无法停止上一首，请在播放器中手动停止');
+ return data;
+}
+
 async function controlHostPlayback(action:'pause'|'resume',deviceToken:string){
  const response=await fetch(endpoint+'/'+action,{method:'POST',headers:{'X-Device-Token':deviceToken.trim()},signal:AbortSignal.timeout(5000)});
  const data=await response.json().catch(()=>({error:'播放器控制返回内容无效'})) as {ok?:boolean;error?:string;requestId?:string|null;requestActive?:boolean;interrupted?:boolean};

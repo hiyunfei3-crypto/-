@@ -20,7 +20,7 @@ export function parseQQPlayerState(raw){
  const positionMs=parsePlayerClock(clocks[0]);
  const durationMs=parsePlayerClock(clocks[1]);
  const control=`${raw.playClass||''} ${raw.playTitle||''} ${raw.playLabel||''}`;
- return {title:String(raw.title||'').trim(),positionMs,durationMs,playing:/暂停|pause|playing|btn_big_play--pause/i.test(control)};
+ return {title:String(raw.title||'').trim(),artist:String(raw.artist||'').trim(),positionMs,durationMs,playing:/暂停|pause|playing|btn_big_play--pause/i.test(control)};
 }
 
 export function neteaseProgressWrapped(lastPositionMs,state){
@@ -58,9 +58,10 @@ async function qqPlayerState(page){
   const roots=[...document.querySelectorAll('[class*="player"],[class*="playbar"]')].filter(visible);
   const pick=selectors=>selectors.flatMap(selector=>[...document.querySelectorAll(selector)]).find(visible)||null;
   const title=pick(['.song_info__name','.player__songname','.player_music__name','[class*="player"] [class*="song_name"]','[class*="player"] [class*="songname"]']);
+  const artist=pick(['.song_info__singer','.player__singer','.player_music__singer','[class*="player"] [class*="singer"]']);
   const timeItems=[...new Set(['.player__time','.player_music__time','[class*="player"] [class*="time"]','[class*="playbar"] [class*="time"]'].flatMap(selector=>[...document.querySelectorAll(selector)]).filter(visible))];
   const play=pick(['.btn_big_play','.player__btn_play','[class*="player"] [class*="play_btn"]','[class*="player"] [class*="btn_play"]']);
-  return {title:title?.getAttribute('title')||title?.textContent||'',time:timeItems.map(item=>item.textContent||'').join(' / ')||roots.map(root=>root.textContent||'').find(text=>/\d{1,2}:\d{2}/.test(text))||'',playClass:play?.className||'',playTitle:play?.getAttribute('title')||'',playLabel:play?.getAttribute('aria-label')||''};
+  return {title:title?.getAttribute('title')||title?.textContent||'',artist:artist?.getAttribute('title')||artist?.textContent||'',time:timeItems.map(item=>item.textContent||'').join(' / ')||roots.map(root=>root.textContent||'').find(text=>/\d{1,2}:\d{2}/.test(text))||'',playClass:play?.className||'',playTitle:play?.getAttribute('title')||'',playLabel:play?.getAttribute('aria-label')||''};
  });
  return parseQQPlayerState(raw);
 }
@@ -227,6 +228,15 @@ export class WebPlayback{
     }
    }
   }
+  if(this.current?.kind==='ui'&&!this.current.ended){
+   if(this.current.source==='netease'&&await neteaseIsAdvancing(this.current.page,700))throw Error('网易云仍在播放，无法安全切换下一首');
+   if(this.current.source==='qqmusic'){
+    const first=await qqPlayerState(this.current.page);
+    await wait(700);
+    const second=await qqPlayerState(this.current.page);
+    if(first.positionMs!==null&&second.positionMs!==null&&second.positionMs>first.positionMs)throw Error('QQ 音乐仍在播放，无法安全切换下一首');
+   }
+  }
   this.current=null;
  }
  async pause(){
@@ -294,6 +304,10 @@ export class WebPlayback{
    const text=await page.locator('body').innerText().catch(()=>'');
    if(/暂无版权|应版权方要求|此歌曲暂时无法播放/.test(text))throw new PlaybackAttemptError('QQ 音乐提示版权限制','unavailable');
    throw new PlaybackAttemptError('QQ 音乐已收到播放指令，但未确认目标音频开始播放','unknown');
+  }
+  if(artist){
+   const actual=await qqPlayerState(page).catch(()=>null);
+   if(actual?.artist&&!actual.artist.split(/[\/、,，&＆]/).some(name=>normalize(name)===normalize(artist)))throw new PlaybackAttemptError(`QQ 音乐实际播放的歌手是「${actual.artist}」，与点歌歌手「${artist}」不符`,'unknown');
   }
   if(media)await watchEnd(media);
   this.current=media?{source:'qqmusic',src:media.src,frame:media.frame,startedAt:Date.now(),durationMs:media.duration*1000}:{source:'qqmusic',kind:'ui',title:selected.title,page,durationMs:ui.durationMs||parsePlayerClock(selected.durationText),lastPositionMs:ui.positionMs,lastProgressAt:Date.now()};

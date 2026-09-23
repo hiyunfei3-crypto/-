@@ -4,7 +4,6 @@ import {playQQMusic} from './qq-adapter.mjs';
 export async function playAcrossPlayers(title,artist='',adapters={netease:playNetease,qq:playQQMusic}){
  const attempts=artist?[
   ()=>adapters.netease(title,artist,false),()=>adapters.qq(title,artist,false),
-  ()=>adapters.netease(title,artist,true),()=>adapters.qq(title,artist,true),
  ]:[()=>adapters.netease(title),()=>adapters.qq(title)];
  const failures=[];
  for(const attempt of attempts){

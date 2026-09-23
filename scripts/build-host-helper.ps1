@@ -1,11 +1,11 @@
-﻿param(
+param(
   [string]$OutputRoot = (Join-Path $PSScriptRoot '..\outputs')
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $source = Join-Path $projectRoot 'tools\netease-helper'
-$version = '2026.09.23.3'
+$version = '2026.09.23.4'
 $packageName = '主播播放助手-最新版-' + $version
 $packageRoot = Join-Path $OutputRoot $packageName
 $zipPath = Join-Path $OutputRoot ($packageName + '.zip')
@@ -48,7 +48,7 @@ if (Test-Path (Join-Path $playerCapSource 'Metabox-Nexus-PlayerCap.exe')) {
 @'
 # 主播播放助手
 
-版本：2026.09.23.3
+版本：2026.09.23.4
 
 1. 解压整个压缩包，不要只打开压缩包内的文件。
 2. Windows 自带 Microsoft Edge 即可，也支持 Google Chrome；助手优先使用系统默认的这两种浏览器。
@@ -61,7 +61,7 @@ if (Test-Path (Join-Path $playerCapSource 'Metabox-Nexus-PlayerCap.exe')) {
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot '使用说明.md') -Encoding UTF8
 
 @'
-主播播放助手 2026.09.23.3
+主播播放助手 2026.09.23.4
 
 包含：
 - Microsoft Edge / Google Chrome 自动选择
@@ -71,7 +71,7 @@ if (Test-Path (Join-Path $playerCapSource 'Metabox-Nexus-PlayerCap.exe')) {
 - 本地实时歌词接口
 - 首次配对后自动发现与重连
 
-启动窗口没有显示 2026.09.23.3 时，说明打开的不是本包。
+启动窗口没有显示 2026.09.23.4 时，说明打开的不是本包。
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot '版本说明.txt') -Encoding UTF8
 
 Compress-Archive -LiteralPath $packageRoot -DestinationPath $zipPath -CompressionLevel Optimal
