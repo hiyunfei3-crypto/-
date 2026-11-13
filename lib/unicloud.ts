@@ -23,6 +23,16 @@ function connect() {
  return ready;
 }
 export async function cloudCall(action:string,body:Record<string,unknown>={}) {
+ const server=(import.meta as ImportMeta & {env:Record<string,string>}).env.VITE_SONGLIST_API_URL?.trim() || 'https://43.142.50.220';
+ if(server){
+  const response=await fetch(server.replace(/\/$/,'')+'/api/songlist',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({action,body}),signal:AbortSignal.timeout(20000),
+  });
+  const result:any=await response.json().catch(()=>{throw Error('九橘服务器响应异常，请稍后重试')});
+  if(!response.ok||result?.error)throw Error(result?.error||'九橘服务器暂时不可用');
+  return result;
+ }
  await connect();
  return new Promise<any>((resolve,reject)=>{
   const requestId=crypto.randomUUID();
